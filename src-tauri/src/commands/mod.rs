@@ -6,6 +6,7 @@ pub mod git_clone;
 mod git_connect;
 mod memory;
 mod system;
+mod tasks;
 mod vault;
 mod version;
 
@@ -18,6 +19,7 @@ pub use git::*;
 pub use git_connect::*;
 pub use memory::*;
 pub use system::*;
+pub use tasks::*;
 pub use vault::*;
 pub use version::*;
 

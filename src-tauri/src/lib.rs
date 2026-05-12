@@ -512,6 +512,8 @@ macro_rules! app_invoke_handler {
             commands::list_views,
             commands::save_view_cmd,
             commands::delete_view_cmd,
+            commands::create_task,
+            commands::create_project,
             vault_watcher::start_vault_watcher,
             vault_watcher::stop_vault_watcher
         ]

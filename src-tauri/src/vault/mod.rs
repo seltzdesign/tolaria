@@ -7,6 +7,7 @@ pub(crate) mod filename_rules;
 mod folders;
 mod frontmatter;
 mod task;
+mod task_create;
 mod task_graph;
 mod getting_started;
 mod ignored;
@@ -33,6 +34,7 @@ pub use config_seed::{
 };
 pub use entry::{FolderNode, VaultEntry};
 pub use task::{ProjectView, TaskView};
+pub use task_create::{create_project_note, create_task_note, CreateNoteResult};
 pub use task_graph::{has_blocked_by_cycle, DEFAULT_MAX_DEPTH};
 pub use file::{create_note_content, get_note_content, note_content_matches, save_note_content};
 pub use folders::{delete_folder, rename_folder, FolderRenameResult};
