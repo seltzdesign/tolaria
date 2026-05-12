@@ -1,5 +1,6 @@
 mod cache;
 mod config_seed;
+mod date_or_datetime;
 mod entry;
 mod file;
 pub(crate) mod filename_rules;
