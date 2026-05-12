@@ -328,9 +328,9 @@ pub(crate) fn extract_properties(
                         properties.insert(key.clone(), serde_json::Value::String(s.clone()));
                     }
                 } else if is_known_list_property(key)
-                    && arr.iter().all(|v| {
-                        matches!(v, serde_json::Value::String(s) if !contains_wikilink(s))
-                    })
+                    && arr
+                        .iter()
+                        .all(|v| matches!(v, serde_json::Value::String(s) if !contains_wikilink(s)))
                 {
                     properties.insert(key.clone(), serde_json::Value::Array(arr.clone()));
                 }

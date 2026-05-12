@@ -233,10 +233,7 @@ mod tests {
         properties.insert("due".into(), serde_json::json!("2026-05-20"));
         properties.insert("start".into(), serde_json::json!("2026-05-15"));
         properties.insert("estimate".into(), serde_json::json!(3));
-        properties.insert(
-            "labels".into(),
-            serde_json::json!(["bug", "frontend"]),
-        );
+        properties.insert("labels".into(), serde_json::json!(["bug", "frontend"]));
         properties.insert("github_sync_status".into(), serde_json::json!("synced"));
         properties.insert("github_item_node_id".into(), serde_json::json!("PVTI_lAHO"));
 
@@ -345,7 +342,10 @@ mod tests {
         let entry = project_entry();
         let project = entry.as_project().unwrap();
         assert_eq!(project.task_folder(), Some("Projects/X/tasks"));
-        assert_eq!(project.statuses(), vec!["Not started", "In progress", "Done"]);
+        assert_eq!(
+            project.statuses(),
+            vec!["Not started", "In progress", "Done"]
+        );
         assert_eq!(project.default_view(), Some("board"));
         assert!(project.sync_enabled());
         assert_eq!(project.sync_interval_minutes(), 10);

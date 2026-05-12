@@ -91,7 +91,10 @@ fn seed_type_doc_if_missing(
 }
 
 fn resolve_target_folder(vault_path: &Path, folder: &str) -> Result<PathBuf, String> {
-    let trimmed = folder.trim().trim_start_matches('/').trim_start_matches('\\');
+    let trimmed = folder
+        .trim()
+        .trim_start_matches('/')
+        .trim_start_matches('\\');
     let target = if trimmed.is_empty() {
         vault_path.to_path_buf()
     } else {
@@ -138,9 +141,7 @@ fn render_task_body(title: &str, project: Option<&str>) -> String {
         Some(p) if !p.is_empty() => format!("project: \"[[{p}]]\"\n"),
         _ => String::new(),
     };
-    format!(
-        "---\ntype: task\n{project_line}---\n\n# {title}\n"
-    )
+    format!("---\ntype: task\n{project_line}---\n\n# {title}\n")
 }
 
 fn render_project_body(title: &str, task_folder: &str) -> String {

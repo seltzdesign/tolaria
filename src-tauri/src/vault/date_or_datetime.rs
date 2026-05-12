@@ -88,7 +88,10 @@ mod tests {
     fn parses_date_only() {
         let v = DateOrDateTime::parse("2026-05-20").unwrap();
         assert!(matches!(v, DateOrDateTime::Date(_)));
-        assert_eq!(v.to_naive_date(), NaiveDate::from_ymd_opt(2026, 5, 20).unwrap());
+        assert_eq!(
+            v.to_naive_date(),
+            NaiveDate::from_ymd_opt(2026, 5, 20).unwrap()
+        );
         assert!(!v.has_time());
     }
 
@@ -96,7 +99,10 @@ mod tests {
     fn parses_datetime_with_z_offset() {
         let v = DateOrDateTime::parse("2026-05-20T14:00:00Z").unwrap();
         assert!(matches!(v, DateOrDateTime::DateTime(_)));
-        assert_eq!(v.to_naive_date(), NaiveDate::from_ymd_opt(2026, 5, 20).unwrap());
+        assert_eq!(
+            v.to_naive_date(),
+            NaiveDate::from_ymd_opt(2026, 5, 20).unwrap()
+        );
         assert!(v.has_time());
     }
 
@@ -125,7 +131,10 @@ mod tests {
         let v = DateOrDateTime::parse("2026-05-20T14:00:00").unwrap();
         assert!(matches!(v, DateOrDateTime::DateTime(_)));
         // Date component is preserved regardless of offset
-        assert_eq!(v.to_naive_date(), NaiveDate::from_ymd_opt(2026, 5, 20).unwrap());
+        assert_eq!(
+            v.to_naive_date(),
+            NaiveDate::from_ymd_opt(2026, 5, 20).unwrap()
+        );
     }
 
     #[test]
@@ -139,7 +148,10 @@ mod tests {
     #[test]
     fn trims_whitespace() {
         let v = DateOrDateTime::parse("  2026-05-20  ").unwrap();
-        assert_eq!(v.to_naive_date(), NaiveDate::from_ymd_opt(2026, 5, 20).unwrap());
+        assert_eq!(
+            v.to_naive_date(),
+            NaiveDate::from_ymd_opt(2026, 5, 20).unwrap()
+        );
     }
 
     #[test]
@@ -169,6 +181,9 @@ mod tests {
     #[test]
     fn to_naive_date_drops_time() {
         let v = DateOrDateTime::parse("2026-05-20T23:59:59+02:00").unwrap();
-        assert_eq!(v.to_naive_date(), NaiveDate::from_ymd_opt(2026, 5, 20).unwrap());
+        assert_eq!(
+            v.to_naive_date(),
+            NaiveDate::from_ymd_opt(2026, 5, 20).unwrap()
+        );
     }
 }

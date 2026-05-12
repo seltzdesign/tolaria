@@ -32,11 +32,7 @@ pub fn create_project(
     title: String,
 ) -> Result<CreateNoteResult, String> {
     let vault_path = expand_tilde(&vault_path);
-    vault::create_project_note(
-        std::path::Path::new(vault_path.as_ref()),
-        &folder,
-        &title,
-    )
+    vault::create_project_note(std::path::Path::new(vault_path.as_ref()), &folder, &title)
 }
 
 #[cfg(test)]

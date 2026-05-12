@@ -6,9 +6,6 @@ mod file;
 pub(crate) mod filename_rules;
 mod folders;
 mod frontmatter;
-mod task;
-mod task_create;
-mod task_graph;
 mod getting_started;
 mod ignored;
 mod image;
@@ -17,6 +14,9 @@ mod parsing;
 pub(crate) mod path_identity;
 mod rename;
 mod rename_transaction;
+mod task;
+mod task_create;
+mod task_graph;
 mod title_sync;
 mod trash;
 mod view_date_filters;
@@ -33,9 +33,6 @@ pub use config_seed::{
     seed_config_files, AiGuidanceFileState, VaultAiGuidanceStatus,
 };
 pub use entry::{FolderNode, VaultEntry};
-pub use task::{ProjectView, TaskView};
-pub use task_create::{create_project_note, create_task_note, CreateNoteResult};
-pub use task_graph::{has_blocked_by_cycle, DEFAULT_MAX_DEPTH};
 pub use file::{create_note_content, get_note_content, note_content_matches, save_note_content};
 pub use folders::{delete_folder, rename_folder, FolderRenameResult};
 pub use getting_started::{create_getting_started_vault, default_vault_path, vault_exists};
@@ -48,6 +45,9 @@ pub use rename::{
     MoveNoteToFolderRequest, MoveNoteToWorkspaceRequest, RenameNoteFilenameRequest,
     RenameNoteRequest, RenameResult,
 };
+pub use task::{ProjectView, TaskView};
+pub use task_create::{create_project_note, create_task_note, CreateNoteResult};
+pub use task_graph::{has_blocked_by_cycle, DEFAULT_MAX_DEPTH};
 pub use title_sync::{sync_title_on_open, SyncAction};
 pub use trash::{batch_delete_notes, delete_note};
 pub use views::{
