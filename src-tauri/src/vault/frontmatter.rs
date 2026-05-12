@@ -289,6 +289,13 @@ fn nested_flow_wikilink(arr: &[serde_json::Value], depth: usize) -> Option<Strin
     }
 }
 
+/// Known list-shaped frontmatter fields on typed notes (see [ADR 0115]). Multi-element
+/// string arrays under these keys land in `VaultEntry.properties` as `Value::Array`;
+/// every other multi-element array stays out of the property bag.
+fn is_known_list_property(key: &str) -> bool {
+    matches!(key, "labels" | "statuses" | "terminal_statuses")
+}
+
 /// Extract custom scalar properties from raw YAML frontmatter.
 pub(crate) fn extract_properties(
     data: &HashMap<String, serde_json::Value>,
@@ -310,13 +317,22 @@ pub(crate) fn extract_properties(
             serde_json::Value::Number(_) | serde_json::Value::Bool(_) => {
                 properties.insert(key.clone(), value.clone());
             }
-            // Handle single-element arrays: unwrap to scalar.
-            // This ensures YAML like "Owner: [Luca]" or "Owner:\n  - Luca" works correctly.
+            // Single-element string arrays unwrap to scalar (e.g. "Owner: [Luca]" works as
+            // expected). Multi-element string arrays are captured as arrays ONLY for known
+            // list-shaped fields on typed notes (`labels`, `statuses`, `terminal_statuses`).
+            // Other multi-element arrays stay out of the property bag so arbitrary list
+            // metadata like `Tags:` doesn't pollute it.
             serde_json::Value::Array(arr) => {
                 if let [serde_json::Value::String(s)] = arr.as_slice() {
                     if !contains_wikilink(s) {
                         properties.insert(key.clone(), serde_json::Value::String(s.clone()));
                     }
+                } else if is_known_list_property(key)
+                    && arr.iter().all(|v| {
+                        matches!(v, serde_json::Value::String(s) if !contains_wikilink(s))
+                    })
+                {
+                    properties.insert(key.clone(), serde_json::Value::Array(arr.clone()));
                 }
             }
             _ => {}
