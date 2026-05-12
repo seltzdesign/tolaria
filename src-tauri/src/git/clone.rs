@@ -129,6 +129,7 @@ fn cleanup_failed_clone(dest: &Path) {
 mod tests {
     use super::*;
     use std::fs;
+    #[cfg(unix)]
     use std::os::unix::process::ExitStatusExt;
     use std::path::Path;
     use std::process::Command as StdCommand;
@@ -200,6 +201,7 @@ mod tests {
         assert!(result.unwrap_err().contains("git clone failed"));
     }
 
+    #[cfg(unix)]
     #[test]
     fn test_clone_failure_message_falls_back_to_stdout() {
         let output = Output {

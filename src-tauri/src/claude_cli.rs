@@ -1236,6 +1236,7 @@ mod tests {
         assert!(matches!(events.last(), Some(ClaudeStreamEvent::Done)));
     }
 
+    #[cfg(unix)]
     #[test]
     fn run_subprocess_closes_stdin_even_when_parent_stdin_pipe_is_open() {
         use std::io::Read;
@@ -1280,6 +1281,7 @@ mod tests {
         );
     }
 
+    #[cfg(unix)]
     #[ignore = "spawned by run_subprocess_closes_stdin_even_when_parent_stdin_pipe_is_open"]
     #[test]
     fn stdin_probe_parent_child() {
