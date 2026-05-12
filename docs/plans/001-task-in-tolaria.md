@@ -29,15 +29,19 @@ Both concepts reuse the existing `VaultEntry` ([src-tauri/src/vault/entry.rs](..
 
 **Task note frontmatter:**
 
+> Schema locked by [ADR 0115](../adr/0115-tasks-and-projects-as-typed-notes.md). The YAML below is illustrative; the ADR is authoritative.
+
 ```yaml
 ---
-is_a: task
-status: in-progress            # backlog | todo | in-progress | blocked | done | cancelled
-priority: P1                   # P0 | P1 | P2 | P3
-due: 2026-05-20
-start: 2026-05-15              # optional, used by timeline view
+type: task
+status: "In progress"          # free-form string; defaults from project's statuses
+priority: P1                   # optional, free string; UI suggests P0|P1|P2|P3
+due: 2026-05-20                # date OR datetime (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS±HH:MM)
+start: 2026-05-15              # optional, date OR datetime
 assignee: ["[[Armin]]"]        # wikilinks to people notes, or @gh-usernames
 project: "[[My Cool Project]]" # wikilink to a project note
+blocked_by:                    # optional; tasks that must complete first (local-only in v1)
+  - "[[Set up CI]]"
 labels: [bug, frontend]
 estimate: 3                    # story points / hours, configurable
 # Bridge-only fields (added when synced):
@@ -54,22 +58,25 @@ github_remote_snapshot_hash: a1b2c3d4    # for 3-way conflict detection
 Free-form markdown body becomes the GitHub Project item's description / linked issue body.
 ```
 
-**Project note frontmatter** (`is_a: project`):
+**Project note frontmatter** (`type: project`):
 
 ```yaml
 ---
-is_a: project
+type: project
+task_folder: "Projects/My Cool Project/tasks"
+statuses: ["Not started", "In progress", Done]
+terminal_statuses: [Done]
+default_view: board
+# GitHub binding (optional — set when bound):
 github_project_url: https://github.com/users/seltzdesign/projects/7
 github_project_node_id: PVT_kwHO...
-default_view: board
-status_field: Status           # which GH custom field maps to local `status`
-statuses: [Backlog, Todo, "In Progress", Done]
-field_mappings:
-  priority: Priority           # local frontmatter key → GH field name
-  due: "End date"
-  estimate: Estimate
 sync_enabled: true
 sync_interval_minutes: 5
+status_field: Status           # GH custom field mapped to local `status`
+field_mappings:
+  priority: Priority
+  due: "End date"
+  estimate: Estimate
 ---
 ```
 
@@ -168,7 +175,7 @@ The phases group into five tracks:
 
 Write five new ADRs (numbers will be next available, currently `0101+`):
 
-1. **"Tasks as typed notes, not a parallel data type"** — extends [ADR 0025](../adr/0025-type-field-canonical.md); explains why tasks are `VaultEntry` with `is_a: task`, not a new struct.
+1. **"Tasks as typed notes, not a parallel data type"** — extends [ADR 0025](../adr/0025-type-field-canonical.md); explains why tasks are `VaultEntry` with `type: task`, not a new struct.
 2. **"GitHub Projects v2 bridge — narrow exception to ADR 0056"** — re-introduces PAT storage *in OS keychain only*, scoped exclusively to Projects sync, opt-in per project.
 3. **"View engine extension: display modes, group-by, `file.X` fields, multi-view files"** — supersedes parts of [ADR 0040](../adr/0040-custom-views-yml-filter-engine.md). Documents the namespace adoption (`note.X` / `file.X` / `formula.X`), new display modes (`table`/`board`/`timeline`/`cards`), `group_by`, and the optional `views:` array for multiple views per `.yml` file. Calls out Obsidian Bases as inspiration and the `.base` compatibility door for v2+.
 4. **"Embeddable view files in notes"** — `![[view.yml]]` and `![[view.yml#name]]` render inline; defines `this` context for filters in embedded views.
