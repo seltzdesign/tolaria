@@ -246,6 +246,13 @@ export interface FilterCondition {
 export type FilterGroup = { all: FilterNode[] } | { any: FilterNode[] }
 export type FilterNode = FilterCondition | FilterGroup
 
+export type ViewDisplay = 'list' | 'table' | 'board' | 'timeline' | 'cards'
+
+export interface ViewGroupBy {
+  property: string
+  direction?: 'asc' | 'desc'
+}
+
 export interface ViewDefinition {
   name: string
   icon: string | null
@@ -255,6 +262,9 @@ export interface ViewDefinition {
   sort: string | null
   listPropertiesDisplay?: string[]
   filters: FilterGroup
+  display?: ViewDisplay
+  groupBy?: ViewGroupBy
+  columns?: string[]
 }
 
 export interface ViewFile {

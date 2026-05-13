@@ -1,4 +1,16 @@
-import type { FilterGroup, FilterNode, VaultEntry, ViewDefinition, ViewFile, WorkspaceIdentity } from '../types'
+import type {
+  FilterGroup,
+  FilterNode,
+  VaultEntry,
+  ViewDefinition,
+  ViewDisplay,
+  ViewFile,
+  ViewGroupBy,
+  WorkspaceIdentity,
+} from '../types'
+
+const VIEW_DISPLAYS: readonly ViewDisplay[] = ['list', 'table', 'board', 'timeline', 'cards']
+const VIEW_DISPLAY_SET = new Set<ViewDisplay>(VIEW_DISPLAYS)
 
 type UnknownRecord = Record<string, unknown>
 
@@ -211,6 +223,20 @@ function normalizeVaultEntryRecord({ rawEntry, vaultPath, index, workspace }: En
   return entry
 }
 
+function normalizeViewDisplay(value: unknown): ViewDisplay | undefined {
+  if (typeof value !== 'string') return undefined
+  const lowered = value.toLowerCase() as ViewDisplay
+  return VIEW_DISPLAY_SET.has(lowered) ? lowered : undefined
+}
+
+function normalizeViewGroupBy(value: unknown): ViewGroupBy | undefined {
+  if (!isRecord(value)) return undefined
+  const property = stringFrom(value.property).trim()
+  if (!property) return undefined
+  const direction = value.direction === 'desc' ? 'desc' : value.direction === 'asc' ? 'asc' : undefined
+  return direction ? { property, direction } : { property }
+}
+
 function normalizeViewDefinition({ rawDefinition, filename, index }: ViewDefinitionArgs): ViewDefinition {
   const definition = recordFrom(rawDefinition)
   const name = stringFrom(definition.name).trim() || fallbackViewName(filename, index)
@@ -227,6 +253,19 @@ function normalizeViewDefinition({ rawDefinition, filename, index }: ViewDefinit
   if ('order' in definition) normalized.order = nullableNumberFrom(definition.order)
   if ('listPropertiesDisplay' in definition) {
     normalized.listPropertiesDisplay = stringArrayFrom(definition.listPropertiesDisplay)
+  }
+  if ('display' in definition) {
+    const display = normalizeViewDisplay(definition.display)
+    if (display) normalized.display = display
+    else delete normalized.display
+  }
+  if ('groupBy' in definition) {
+    const groupBy = normalizeViewGroupBy(definition.groupBy)
+    if (groupBy) normalized.groupBy = groupBy
+    else delete normalized.groupBy
+  }
+  if ('columns' in definition) {
+    normalized.columns = stringArrayFrom(definition.columns)
   }
   return normalized
 }
