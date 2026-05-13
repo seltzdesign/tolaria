@@ -16,6 +16,30 @@ use super::view_value_conversions::{
 };
 use super::VaultEntry;
 
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum ViewDisplay {
+    List,
+    Table,
+    Board,
+    Timeline,
+    Cards,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum SortDirection {
+    Asc,
+    Desc,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct GroupBy {
+    pub property: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub direction: Option<SortDirection>,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ViewDefinition {
     pub name: String,
@@ -27,6 +51,12 @@ pub struct ViewDefinition {
     pub order: Option<i64>,
     #[serde(default)]
     pub sort: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display: Option<ViewDisplay>,
+    #[serde(default, rename = "groupBy", skip_serializing_if = "Option::is_none")]
+    pub group_by: Option<GroupBy>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub columns: Vec<String>,
     #[serde(
         default,
         rename = "listPropertiesDisplay",

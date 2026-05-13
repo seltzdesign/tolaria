@@ -48,6 +48,9 @@ mod tests {
             color: None,
             order: None,
             sort: Some("modified:desc".to_string()),
+            display: None,
+            group_by: None,
+            columns: Vec::new(),
             list_properties_display: vec!["Priority".to_string()],
             filters: FilterGroup::All(vec![FilterNode::Condition(FilterCondition {
                 field: "type".to_string(),

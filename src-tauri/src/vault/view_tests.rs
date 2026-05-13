@@ -19,6 +19,9 @@ mod tests {
             color: None,
             order: None,
             sort: None,
+            display: None,
+            group_by: None,
+            columns: Vec::new(),
             list_properties_display: Vec::new(),
             filters: FilterGroup::All(vec![FilterNode::Condition(FilterCondition {
                 field: "type".to_string(),
@@ -490,6 +493,83 @@ filters:
         let entries = vec![yes, wrong_type, no_match];
         let result = evaluate_view(&def, &entries);
         assert_eq!(result, vec![0]);
+    }
+
+    #[test]
+    fn test_legacy_view_round_trip_omits_new_fields() {
+        let yaml = r#"name: Active Projects
+icon: rocket
+filters:
+  all:
+    - field: type
+      op: equals
+      value: Project
+"#;
+        let def: ViewDefinition = serde_yaml::from_str(yaml).unwrap();
+        assert!(def.display.is_none());
+        assert!(def.group_by.is_none());
+        assert!(def.columns.is_empty());
+
+        let serialized = serde_yaml::to_string(&def).unwrap();
+        assert!(!serialized.contains("display"));
+        assert!(!serialized.contains("groupBy"));
+        assert!(!serialized.contains("columns"));
+    }
+
+    #[test]
+    fn test_view_with_display_board_round_trips() {
+        let yaml = r#"name: Tasks Board
+display: board
+groupBy:
+  property: status
+  direction: asc
+columns:
+  - status
+  - priority
+  - due
+filters:
+  all:
+    - field: type
+      op: equals
+      value: task
+"#;
+        let def: ViewDefinition = serde_yaml::from_str(yaml).unwrap();
+        assert!(matches!(def.display, Some(ViewDisplay::Board)));
+        let group = def.group_by.as_ref().unwrap();
+        assert_eq!(group.property, "status");
+        assert!(matches!(group.direction, Some(SortDirection::Asc)));
+        assert_eq!(def.columns, vec!["status", "priority", "due"]);
+
+        let serialized = serde_yaml::to_string(&def).unwrap();
+        let reparsed: ViewDefinition = serde_yaml::from_str(&serialized).unwrap();
+        assert_eq!(reparsed.columns, def.columns);
+        assert!(matches!(reparsed.display, Some(ViewDisplay::Board)));
+    }
+
+    #[test]
+    fn test_unknown_display_value_fails_to_parse() {
+        let yaml = r#"name: Bogus
+display: invalidvalue
+filters:
+  all: []
+"#;
+        let err = serde_yaml::from_str::<ViewDefinition>(yaml).unwrap_err();
+        assert!(err.to_string().contains("invalidvalue"));
+    }
+
+    #[test]
+    fn test_group_by_without_direction_round_trips() {
+        let yaml = r#"name: Tasks Grouped
+display: table
+groupBy:
+  property: priority
+filters:
+  all: []
+"#;
+        let def: ViewDefinition = serde_yaml::from_str(yaml).unwrap();
+        let group = def.group_by.as_ref().unwrap();
+        assert_eq!(group.property, "priority");
+        assert!(group.direction.is_none());
     }
 
     #[test]
