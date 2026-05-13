@@ -10,6 +10,11 @@ import { ArchivedNoteBanner } from '../ArchivedNoteBanner'
 import { ConflictNoteBanner } from '../ConflictNoteBanner'
 import { RawEditorView } from '../RawEditorView'
 import { SingleEditorView } from '../SingleEditorView'
+import { TaskEditor } from '../tasks/TaskEditor'
+import { ProjectEditor } from '../tasks/ProjectEditor'
+import { isTaskEntry } from '../../lib/tasks/taskView'
+import { isProjectEntry } from '../../lib/tasks/projectView'
+import type { FrontmatterValue } from '../Inspector'
 import type { useEditorContentModel } from './useEditorContentModel'
 
 type EditorContentModel = ReturnType<typeof useEditorContentModel>
@@ -429,6 +434,47 @@ function EditorFindScope({
   )
 }
 
+type UpdateFrontmatter = NonNullable<EditorContentModel['onUpdateFrontmatter']>
+
+function TaskOrProjectFrame({
+  entry,
+  entries,
+  onUpdateFrontmatter,
+  children,
+}: {
+  entry: VaultEntry
+  entries: VaultEntry[]
+  onUpdateFrontmatter?: UpdateFrontmatter
+  children: React.ReactNode
+}) {
+  if (isTaskEntry(entry) && onUpdateFrontmatter) {
+    return (
+      <TaskEditor
+        entry={entry}
+        entries={entries}
+        onUpdate={(key, value) => {
+          void onUpdateFrontmatter(entry.path, key, value as FrontmatterValue)
+        }}
+      >
+        {children}
+      </TaskEditor>
+    )
+  }
+  if (isProjectEntry(entry) && onUpdateFrontmatter) {
+    return (
+      <ProjectEditor
+        entry={entry}
+        onUpdate={(key, value) => {
+          void onUpdateFrontmatter(entry.path, key, value as FrontmatterValue)
+        }}
+      >
+        {children}
+      </ProjectEditor>
+    )
+  }
+  return <>{children}</>
+}
+
 export function EditorContentLayout(model: EditorContentModel) {
   const {
     activeTab,
@@ -463,6 +509,7 @@ export function EditorContentLayout(model: EditorContentModel) {
     locale,
     isVaultLoading,
   } = model
+  const { onUpdateFrontmatter } = model
   const rootClassName = cn(
     'flex flex-1 flex-col min-w-0 min-h-0',
     noteWidth === 'wide' ? 'editor-content-width--wide' : 'editor-content-width--normal',
@@ -499,30 +546,36 @@ export function EditorContentLayout(model: EditorContentModel) {
             onToggleDiff={onToggleDiff}
             locale={locale}
           />
-          <RawModeEditorSection
-            activeTab={activeTab}
+          <TaskOrProjectFrame
+            entry={activeTab.entry}
             entries={entries}
-            findRequest={findRequest}
-            rawMode={effectiveRawMode}
-            rawModeContent={rawModeContent}
-            onRawContentChange={onRawContentChange}
-            onSave={onSave}
-            rawLatestContentRef={rawLatestContentRef}
-            vaultPath={vaultPath}
-            locale={locale}
-          />
-          <EditorCanvas
-            showEditor={showEditor}
-            cssVars={cssVars}
-            activeTab={activeTab}
-            vaultPath={vaultPath}
-            editor={editor}
-            entries={entries}
-            onNavigateWikilink={onNavigateWikilink}
-            onEditorChange={onEditorChange}
-            isDeletedPreview={isDeletedPreview}
-            locale={locale}
-          />
+            onUpdateFrontmatter={onUpdateFrontmatter}
+          >
+            <RawModeEditorSection
+              activeTab={activeTab}
+              entries={entries}
+              findRequest={findRequest}
+              rawMode={effectiveRawMode}
+              rawModeContent={rawModeContent}
+              onRawContentChange={onRawContentChange}
+              onSave={onSave}
+              rawLatestContentRef={rawLatestContentRef}
+              vaultPath={vaultPath}
+              locale={locale}
+            />
+            <EditorCanvas
+              showEditor={showEditor}
+              cssVars={cssVars}
+              activeTab={activeTab}
+              vaultPath={vaultPath}
+              editor={editor}
+              entries={entries}
+              onNavigateWikilink={onNavigateWikilink}
+              onEditorChange={onEditorChange}
+              isDeletedPreview={isDeletedPreview}
+              locale={locale}
+            />
+          </TaskOrProjectFrame>
         </>
       )}
       {showLoadingContent && <EditorLoadingCanvas cssVars={cssVars} />}

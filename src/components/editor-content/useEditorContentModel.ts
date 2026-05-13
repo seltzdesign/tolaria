@@ -6,6 +6,8 @@ import type { NoteWidthMode, NoteStatus, VaultEntry } from '../../types'
 import { useEditorTheme } from '../../hooks/useTheme'
 import { deriveEditorContentState } from './editorContentState'
 import type { RawEditorFindRequest } from '../RawEditorFindBar'
+import type { FrontmatterOpOptions } from '../../hooks/frontmatterOps'
+import type { FrontmatterValue } from '../Inspector'
 
 export interface Tab {
   entry: VaultEntry
@@ -55,6 +57,12 @@ export interface EditorContentProps {
   isConflicted?: boolean
   onKeepMine?: (path: string) => void
   onKeepTheirs?: (path: string) => void
+  onUpdateFrontmatter?: (
+    path: string,
+    key: string,
+    value: FrontmatterValue,
+    options?: FrontmatterOpOptions,
+  ) => Promise<void>
   locale?: AppLocale
 }
 

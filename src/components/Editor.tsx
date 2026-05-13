@@ -519,6 +519,7 @@ function EditorLayout({
               isConflicted={isConflicted}
               onKeepMine={onKeepMine}
               onKeepTheirs={onKeepTheirs}
+              onUpdateFrontmatter={onUpdateFrontmatter}
               locale={locale}
             />
         }
