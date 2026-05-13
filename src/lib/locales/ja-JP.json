@@ -671,5 +671,10 @@
   "locale.jaJP": "日本語",
   "locale.koKR": "韩国語",
   "locale.vi": "ベトナム語",
-  "locale.plPL": "ポーランド語"
+  "locale.plPL": "ポーランド語",
+  "tasks.card.assignees": "{count} assignee",
+  "tasks.board.emptyView": "No items in this view.",
+  "tasks.board.unsetColumn": "(unset)",
+  "tasks.board.columnCount": "{count} item",
+  "tasks.board.dragHint": "Drag a card to change its {property}."
 }

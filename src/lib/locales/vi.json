@@ -671,5 +671,10 @@
   "locale.jaJP": "Tiếng Nhật",
   "locale.koKR": "Tiếng Hàn",
   "locale.vi": "Tiếng Việt",
-  "locale.plPL": "Tiếng Ba Lan"
+  "locale.plPL": "Tiếng Ba Lan",
+  "tasks.card.assignees": "{count} assignee",
+  "tasks.board.emptyView": "No items in this view.",
+  "tasks.board.unsetColumn": "(unset)",
+  "tasks.board.columnCount": "{count} item",
+  "tasks.board.dragHint": "Drag a card to change its {property}."
 }

@@ -1,0 +1,15 @@
+name: Q2 Launch Board
+icon: kanban
+color: blue
+sort: "modified:desc"
+display: board
+groupBy:
+  property: status
+filters:
+  all:
+    - field: type
+      op: equals
+      value: task
+    - field: project
+      op: contains
+      value: "Q2 Launch"
