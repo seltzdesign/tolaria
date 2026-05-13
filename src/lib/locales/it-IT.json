@@ -695,5 +695,9 @@
   "tasks.table.column.fileFolder": "Folder",
   "tasks.table.column.fileExt": "Type",
   "tasks.table.column.fileSize": "Size",
-  "tasks.table.column.fileTags": "Tags"
+  "tasks.table.column.fileTags": "Tags",
+  "tasks.timeline.emptyView": "No items in this view.",
+  "tasks.timeline.unsetLane": "(unset)",
+  "tasks.timeline.noDatesFooter": "{count} task without dates",
+  "tasks.timeline.today": ""
 }

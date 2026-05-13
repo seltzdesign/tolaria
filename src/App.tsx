@@ -13,6 +13,7 @@ import { CommitDialog } from './components/CommitDialog'
 import { PulseView } from './components/PulseView'
 import { TaskBoard } from './components/tasks/TaskBoard'
 import { TaskTable } from './components/tasks/TaskTable'
+import { TaskTimeline } from './components/tasks/TaskTimeline'
 import { StatusBar } from './components/StatusBar'
 import { SettingsPanel } from './components/SettingsPanel'
 import { CloneVaultModal } from './components/CloneVaultModal'
@@ -1632,6 +1633,7 @@ function App() {
     const display = view.definition.display
     if (display === 'board') return { kind: 'board' as const, view }
     if (display === 'table') return { kind: 'table' as const, view }
+    if (display === 'timeline') return { kind: 'timeline' as const, view }
     return null
   }, [effectiveSelection, vault.views])
 
@@ -1699,8 +1701,10 @@ function App() {
               <div className="app__view-canvas">
                 {selectedCanvasView.kind === 'board' ? (
                   <TaskBoard view={selectedCanvasView.view} filteredEntries={canvasFilteredEntries} allEntries={visibleEntries} selectedEntryPath={activeTab?.entry?.path ?? null} onSelectNote={notes.handleSelectNote} onUpdateFrontmatter={notes.handleUpdateFrontmatter} locale={appLocale} />
-                ) : (
+                ) : selectedCanvasView.kind === 'table' ? (
                   <TaskTable view={selectedCanvasView.view} filteredEntries={canvasFilteredEntries} selectedEntryPath={activeTab?.entry?.path ?? null} onSelectNote={notes.handleSelectNote} onUpdateViewDefinition={handleUpdateViewDefinition} locale={appLocale} />
+                ) : (
+                  <TaskTimeline view={selectedCanvasView.view} filteredEntries={canvasFilteredEntries} selectedEntryPath={activeTab?.entry?.path ?? null} onSelectNote={notes.handleSelectNote} onUpdateFrontmatter={notes.handleUpdateFrontmatter} locale={appLocale} />
                 )}
               </div>
               <ResizeHandle onResize={layout.handleNoteListResize} />
