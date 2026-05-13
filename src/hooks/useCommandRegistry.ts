@@ -64,6 +64,8 @@ interface CommandRegistryConfig {
   canRestoreDeletedNote?: boolean
   onQuickOpen: () => void
   onCreateNote: () => void
+  onCreateTask?: () => void
+  onCreateProject?: () => void
   onCreateNoteOfType: (type: string) => void
   onSave: () => void
   onPastePlainText: () => void
@@ -127,7 +129,7 @@ interface CommandRegistryConfig {
 export function useCommandRegistry(config: CommandRegistryConfig): import('./commands/types').CommandAction[] {
   const {
     activeTabPath, entries, modifiedCount,
-    onQuickOpen, onCreateNote, onCreateNoteOfType, onSave, onPastePlainText, onOpenSettings, onOpenFeedback,
+    onQuickOpen, onCreateNote, onCreateTask, onCreateProject, onCreateNoteOfType, onSave, onPastePlainText, onOpenSettings, onOpenFeedback,
     onDeleteNote, onArchiveNote, onUnarchiveNote,
     onCommitPush, onPull, onResolveConflicts, onSetViewMode, onToggleInspector, onToggleDiff, onToggleRawEditor, onFindInNote, onReplaceInNote,
     noteWidth, defaultNoteWidth, onSetNoteWidth, onSetDefaultNoteWidth, onToggleAIChat, onToggleTableOfContents, onOpenVault, onCreateEmptyVault,
@@ -189,7 +191,7 @@ export function useCommandRegistry(config: CommandRegistryConfig): import('./com
 
   const noteCommands = useMemo(() => buildNoteCommands({
     hasActiveNote, activeTabPath, activeFileKind: activeEntry?.fileKind ?? 'markdown', isArchived,
-    onCreateNote, onCreateType, onSave,
+    onCreateNote, onCreateTask, onCreateProject, onCreateType, onSave,
     onFindInNote, onReplaceInNote, onPastePlainText,
     onDeleteNote, onArchiveNote, onUnarchiveNote,
     onChangeNoteType, onMoveNoteToFolder, canMoveNoteToFolder,
@@ -200,7 +202,7 @@ export function useCommandRegistry(config: CommandRegistryConfig): import('./com
     onRestoreDeletedNote, canRestoreDeletedNote,
   }), [
     hasActiveNote, activeTabPath, activeEntry?.fileKind, isArchived,
-    onCreateNote, onCreateType, onSave, onFindInNote, onReplaceInNote, onPastePlainText, onDeleteNote, onArchiveNote, onUnarchiveNote,
+    onCreateNote, onCreateTask, onCreateProject, onCreateType, onSave, onFindInNote, onReplaceInNote, onPastePlainText, onDeleteNote, onArchiveNote, onUnarchiveNote,
     onChangeNoteType, onMoveNoteToFolder, canMoveNoteToFolder,
     onSetNoteIcon, onRemoveNoteIcon, activeNoteHasIcon, onOpenInNewWindow,
     onRevealActiveFile, onCopyActiveFilePath, onOpenActiveFileExternal,

@@ -1431,6 +1431,14 @@ function App() {
     onReplaceInNote: activeDeletedFile ? undefined : replaceInNoteCommand,
     onPastePlainText: pastePlainTextCommand,
     onCreateNote: notes.handleCreateNoteImmediate,
+    onCreateTask: () => {
+      trackEvent('task_created', { has_project: 'false' })
+      notes.handleCreateNoteImmediate('task')
+    },
+    onCreateProject: () => {
+      trackEvent('project_created')
+      notes.handleCreateNoteImmediate('project')
+    },
     onCreateNoteOfType: notes.handleCreateNoteImmediate,
     onSave: appSave.handleSave,
     onOpenSettings: handleOpenSettings,

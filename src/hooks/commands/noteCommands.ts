@@ -9,6 +9,8 @@ interface NoteCommandsConfig {
   isArchived: boolean
   activeNoteHasIcon?: boolean
   onCreateNote: () => void
+  onCreateTask?: () => void
+  onCreateProject?: () => void
   onCreateType?: () => void
   onSave: () => void
   onFindInNote?: () => void
@@ -79,6 +81,20 @@ function buildCoreNoteCommands(config: NoteCommandsConfig): CommandAction[] {
       keywords: ['new', 'create', 'type', 'template'],
       enabled: !!config.onCreateType,
       execute: () => config.onCreateType?.(),
+    }),
+    createNoteCommand({
+      id: 'create-task',
+      label: 'New Task',
+      keywords: ['new', 'create', 'task', 'todo'],
+      enabled: !!config.onCreateTask,
+      execute: () => config.onCreateTask?.(),
+    }),
+    createNoteCommand({
+      id: 'create-project',
+      label: 'New Project',
+      keywords: ['new', 'create', 'project'],
+      enabled: !!config.onCreateProject,
+      execute: () => config.onCreateProject?.(),
     }),
     createNoteCommand({
       id: 'save-note',
