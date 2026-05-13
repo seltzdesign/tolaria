@@ -161,7 +161,10 @@ mod tests {
             props.insert("priority".into(), serde_json::json!("P1"));
             e.properties = props;
         });
-        assert_eq!(scalar_string(resolve_field("priority", &entry)).as_deref(), Some("P1"));
+        assert_eq!(
+            scalar_string(resolve_field("priority", &entry)).as_deref(),
+            Some("P1")
+        );
         assert_eq!(
             scalar_string(resolve_field("note.priority", &entry)).as_deref(),
             Some("P1"),
@@ -174,8 +177,14 @@ mod tests {
             e.is_a = Some("Project".into());
             e.status = Some("In progress".into());
         });
-        assert_eq!(scalar_string(resolve_field("type", &entry)).as_deref(), Some("Project"));
-        assert_eq!(scalar_string(resolve_field("note.type", &entry)).as_deref(), Some("Project"));
+        assert_eq!(
+            scalar_string(resolve_field("type", &entry)).as_deref(),
+            Some("Project")
+        );
+        assert_eq!(
+            scalar_string(resolve_field("note.type", &entry)).as_deref(),
+            Some("Project")
+        );
         assert_eq!(
             scalar_string(resolve_field("note.status", &entry)).as_deref(),
             Some("In progress"),
@@ -197,7 +206,10 @@ mod tests {
             scalar_string(resolve_field("file.folder", &entry)).as_deref(),
             Some("/vault/Projects/Active"),
         );
-        assert_eq!(scalar_string(resolve_field("file.name", &entry)).as_deref(), Some("Launch"));
+        assert_eq!(
+            scalar_string(resolve_field("file.name", &entry)).as_deref(),
+            Some("Launch")
+        );
     }
 
     #[test]
@@ -206,19 +218,28 @@ mod tests {
             e.path = "/vault/note.md".into();
             e.filename = "note.md".into();
         });
-        assert_eq!(scalar_string(resolve_field("file.name", &entry)).as_deref(), Some("note"));
+        assert_eq!(
+            scalar_string(resolve_field("file.name", &entry)).as_deref(),
+            Some("note")
+        );
     }
 
     #[test]
     fn file_ext_returns_extension_without_dot() {
         let entry = make_entry(|e| e.filename = "doc.md".into());
-        assert_eq!(scalar_string(resolve_field("file.ext", &entry)).as_deref(), Some("md"));
+        assert_eq!(
+            scalar_string(resolve_field("file.ext", &entry)).as_deref(),
+            Some("md")
+        );
     }
 
     #[test]
     fn file_size_returns_string() {
         let entry = make_entry(|e| e.file_size = 4096);
-        assert_eq!(scalar_string(resolve_field("file.size", &entry)).as_deref(), Some("4096"));
+        assert_eq!(
+            scalar_string(resolve_field("file.size", &entry)).as_deref(),
+            Some("4096")
+        );
     }
 
     #[test]
@@ -245,7 +266,10 @@ mod tests {
             e.belongs_to = vec!["[[urgent]]".into(), "[[Q2 Launch]]".into()];
         });
         let targets = relationship_targets(resolve_field("file.tags", &entry)).unwrap();
-        assert_eq!(targets, &["[[urgent]]".to_string(), "[[Q2 Launch]]".to_string()]);
+        assert_eq!(
+            targets,
+            &["[[urgent]]".to_string(), "[[Q2 Launch]]".to_string()]
+        );
     }
 
     #[test]
