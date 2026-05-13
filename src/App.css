@@ -60,6 +60,28 @@
   flex: 1;
 }
 
+.app__board {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-sidebar);
+  border-left: 1px solid var(--sidebar-border);
+}
+
+.app__board > * {
+  flex: 1;
+}
+
+.app:has(.app__board) .app__editor {
+  flex: 0 0 auto;
+  width: 420px;
+  min-width: 320px;
+  max-width: 640px;
+}
+
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
