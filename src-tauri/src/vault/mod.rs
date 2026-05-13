@@ -52,8 +52,9 @@ pub use task_graph::{has_blocked_by_cycle, DEFAULT_MAX_DEPTH};
 pub use title_sync::{sync_title_on_open, SyncAction};
 pub use trash::{batch_delete_notes, delete_note};
 pub use views::{
-    delete_view, evaluate_view, save_view, scan_views, FilterCondition, FilterGroup, FilterNode,
-    FilterOp, ViewDefinition, ViewFile,
+    delete_view, evaluate_view, save_view, scan_views, split_view_filename, FilterCondition,
+    FilterGroup, FilterNode, FilterOp, GroupBy, SortDirection, ViewDefinition, ViewDisplay,
+    ViewFile, ViewFileShape,
 };
 
 use file::read_file_metadata;

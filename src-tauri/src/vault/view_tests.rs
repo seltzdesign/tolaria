@@ -688,6 +688,108 @@ filters:
     }
 
     #[test]
+    fn test_multi_view_file_yields_one_view_per_entry() {
+        let dir = tempfile::tempdir().unwrap();
+        let views_dir = dir.path().join("views");
+        fs::create_dir_all(&views_dir).unwrap();
+
+        let multi = r#"views:
+  - name: Inbox
+    filters:
+      all:
+        - field: type
+          op: equals
+          value: Note
+  - name: Done
+    display: list
+    filters:
+      all:
+        - field: status
+          op: equals
+          value: Done
+"#;
+        fs::write(views_dir.join("tasks.yml"), multi).unwrap();
+
+        let views = scan_views(dir.path());
+        assert_eq!(views.len(), 2);
+
+        let names: Vec<&str> = views.iter().map(|v| v.definition.name.as_str()).collect();
+        assert!(names.contains(&"Inbox"));
+        assert!(names.contains(&"Done"));
+
+        for view in &views {
+            assert!(matches!(view.shape, ViewFileShape::Multi));
+            let (base, index) = split_view_filename(&view.filename);
+            assert_eq!(base, "tasks.yml");
+            assert!(index.is_some());
+        }
+    }
+
+    #[test]
+    fn test_single_and_multi_view_files_coexist_in_views_dir() {
+        let dir = tempfile::tempdir().unwrap();
+        let views_dir = dir.path().join("views");
+        fs::create_dir_all(&views_dir).unwrap();
+
+        let single = r#"name: Solo
+filters:
+  all:
+    - field: type
+      op: equals
+      value: Note
+"#;
+        let multi = r#"views:
+  - name: First
+    filters:
+      all: []
+  - name: Second
+    filters:
+      all: []
+"#;
+        fs::write(views_dir.join("solo.yml"), single).unwrap();
+        fs::write(views_dir.join("paired.yml"), multi).unwrap();
+
+        let views = scan_views(dir.path());
+        assert_eq!(views.len(), 3);
+
+        let solo = views
+            .iter()
+            .find(|v| v.definition.name == "Solo")
+            .expect("solo view present");
+        assert!(matches!(solo.shape, ViewFileShape::Single));
+
+        let multi_views: Vec<_> = views
+            .iter()
+            .filter(|v| matches!(v.shape, ViewFileShape::Multi))
+            .collect();
+        assert_eq!(multi_views.len(), 2);
+    }
+
+    #[test]
+    fn test_save_view_rejects_multi_view_synthetic_filename() {
+        let dir = tempfile::tempdir().unwrap();
+        let definition = make_project_view("Anything");
+        let err = save_view(dir.path(), "tasks.yml#0", &definition).unwrap_err();
+        assert!(err.contains("multi-view"));
+    }
+
+    #[test]
+    fn test_delete_view_rejects_multi_view_synthetic_filename() {
+        let dir = tempfile::tempdir().unwrap();
+        let err = delete_view(dir.path(), "tasks.yml#1").unwrap_err();
+        assert!(err.contains("multi-view"));
+    }
+
+    #[test]
+    fn test_split_view_filename_handles_single_and_multi() {
+        assert_eq!(split_view_filename("inbox.yml"), ("inbox.yml", None));
+        assert_eq!(split_view_filename("tasks.yml#0"), ("tasks.yml", Some(0)));
+        assert_eq!(split_view_filename("tasks.yml#2"), ("tasks.yml", Some(2)));
+        // Non-numeric suffix: treat as a literal filename
+        assert_eq!(split_view_filename("weird#abc"), ("weird#abc", None));
+    }
+
+    #[test]
     fn test_body_is_empty() {
         let yaml = r#"
 name: Empty Body

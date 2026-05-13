@@ -184,38 +184,90 @@ pub enum FilterOp {
     After,
 }
 
-/// A view file on disk: filename + parsed definition.
+/// Shape the view file was loaded in. Multi-view files contain a top-level
+/// `views:` array; single-view files have the definition at the root.
+#[derive(Debug, Serialize, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum ViewFileShape {
+    Single,
+    Multi,
+}
+
+/// A view file entry: synthetic filename + parsed definition. For multi-view
+/// files, one source `.yml` produces N `ViewFile` entries with synthetic
+/// filenames of the form `{base}#{index}` (index is zero-based).
 #[derive(Debug, Serialize, Clone)]
 pub struct ViewFile {
     pub filename: String,
     pub definition: ViewDefinition,
+    #[serde(skip_serializing_if = "is_single_shape")]
+    pub shape: ViewFileShape,
 }
 
-fn read_view_file(path: &Path) -> Option<ViewFile> {
+fn is_single_shape(shape: &ViewFileShape) -> bool {
+    matches!(shape, ViewFileShape::Single)
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+enum RawViewFile {
+    Multi { views: Vec<ViewDefinition> },
+    Single(Box<ViewDefinition>),
+}
+
+fn synthetic_multi_filename(base: &str, index: usize) -> String {
+    format!("{base}#{index}")
+}
+
+/// Split a possibly-synthetic view filename into its on-disk base and (for
+/// multi-view files) the index within the file.
+pub fn split_view_filename(filename: &str) -> (&str, Option<usize>) {
+    match filename.rsplit_once('#') {
+        Some((base, idx)) => match idx.parse::<usize>() {
+            Ok(i) => (base, Some(i)),
+            Err(_) => (filename, None),
+        },
+        None => (filename, None),
+    }
+}
+
+fn read_view_file(path: &Path) -> Vec<ViewFile> {
     if !is_view_definition_file(path) {
-        return None;
+        return Vec::new();
     }
 
-    let filename = path.file_name()?.to_string_lossy().to_string();
+    let Some(filename_os) = path.file_name() else {
+        return Vec::new();
+    };
+    let filename = filename_os.to_string_lossy().to_string();
     let content = match fs::read_to_string(path) {
         Ok(content) => content,
         Err(error) => {
             log::warn!("Failed to read view file {}: {}", filename, error);
-            return None;
-        }
-    };
-    let definition = match serde_yaml::from_str::<ViewDefinition>(&content) {
-        Ok(definition) => definition,
-        Err(error) => {
-            log::warn!("Failed to parse view {}: {}", filename, error);
-            return None;
+            return Vec::new();
         }
     };
 
-    Some(ViewFile {
-        filename,
-        definition,
-    })
+    match serde_yaml::from_str::<RawViewFile>(&content) {
+        Ok(RawViewFile::Single(def)) => vec![ViewFile {
+            filename,
+            definition: *def,
+            shape: ViewFileShape::Single,
+        }],
+        Ok(RawViewFile::Multi { views }) => views
+            .into_iter()
+            .enumerate()
+            .map(|(index, definition)| ViewFile {
+                filename: synthetic_multi_filename(&filename, index),
+                definition,
+                shape: ViewFileShape::Multi,
+            })
+            .collect(),
+        Err(error) => {
+            log::warn!("Failed to parse view {}: {}", filename, error);
+            Vec::new()
+        }
+    }
 }
 
 pub fn scan_views(vault_path: &Path) -> Vec<ViewFile> {
@@ -235,9 +287,7 @@ pub fn scan_views(vault_path: &Path) -> Vec<ViewFile> {
     };
 
     for entry in entries.flatten() {
-        if let Some(view) = read_view_file(&entry.path()) {
-            views.push(view);
-        }
+        views.extend(read_view_file(&entry.path()));
     }
 
     views.sort_by(compare_views);
@@ -254,11 +304,22 @@ fn compare_views(left: &ViewFile, right: &ViewFile) -> Ordering {
 }
 
 /// Save a view definition as YAML to `vault_path/views/{filename}`.
+///
+/// In v1, save_view only writes single-view files. Synthetic filenames of the
+/// form `{base}#{index}` (which scan_views emits for multi-view files) are
+/// rejected — programmatic edits to multi-view files are deferred until a UI
+/// caller needs them. Users can still edit multi-view files by hand.
 pub fn save_view(
     vault_path: &Path,
     filename: &str,
     definition: &ViewDefinition,
 ) -> Result<(), String> {
+    if filename.contains('#') {
+        return Err(
+            "Saving into a multi-view file is not supported yet; edit the file directly"
+                .to_string(),
+        );
+    }
     if !filename.ends_with(".yml") {
         return Err("Filename must end with .yml".to_string());
     }
@@ -272,7 +333,16 @@ pub fn save_view(
 }
 
 /// Delete a view file at `vault_path/views/{filename}`.
+///
+/// Synthetic filenames `{base}#{index}` (multi-view file entries) are rejected
+/// in v1 with the same rationale as `save_view`.
 pub fn delete_view(vault_path: &Path, filename: &str) -> Result<(), String> {
+    if filename.contains('#') {
+        return Err(
+            "Deleting a single view from a multi-view file is not supported yet; edit the file directly"
+                .to_string(),
+        );
+    }
     let path = vault_path.join("views").join(filename);
     match fs::remove_file(&path) {
         Ok(()) => Ok(()),
