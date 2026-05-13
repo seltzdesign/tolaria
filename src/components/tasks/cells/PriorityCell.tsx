@@ -13,9 +13,15 @@ export interface PriorityCellProps {
   value: string | null
   onChange: (value: string | null) => void
   disabled?: boolean
+  placeholder?: string
 }
 
-export function PriorityCell({ value, onChange, disabled = false }: PriorityCellProps) {
+export function PriorityCell({
+  value,
+  onChange,
+  disabled = false,
+  placeholder = 'Priority',
+}: PriorityCellProps) {
   const selectValue = value ?? NONE_VALUE
   return (
     <Select
@@ -24,7 +30,7 @@ export function PriorityCell({ value, onChange, disabled = false }: PriorityCell
       disabled={disabled}
     >
       <SelectTrigger size="sm" data-testid="task-priority-trigger">
-        <SelectValue placeholder="Priority" />
+        <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent>
         <SelectItem value={NONE_VALUE}>—</SelectItem>

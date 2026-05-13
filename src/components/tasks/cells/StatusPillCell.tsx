@@ -15,6 +15,7 @@ export interface StatusPillCellProps {
   options?: readonly string[]
   onChange: (value: string | null) => void
   disabled?: boolean
+  placeholder?: string
 }
 
 function dedupeOptions(options: readonly string[], current: string | null): string[] {
@@ -35,6 +36,7 @@ export function StatusPillCell({
   options,
   onChange,
   disabled = false,
+  placeholder = 'Status',
 }: StatusPillCellProps) {
   const resolvedOptions = useMemo(
     () => dedupeOptions(options && options.length > 0 ? options : DEFAULT_OPTIONS, value),
@@ -48,7 +50,7 @@ export function StatusPillCell({
       disabled={disabled}
     >
       <SelectTrigger size="sm" data-testid="task-status-trigger">
-        <SelectValue placeholder="Status" />
+        <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent>
         <SelectItem value={NONE_VALUE}>—</SelectItem>

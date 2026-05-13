@@ -7,6 +7,7 @@ import {
 import { asProject } from '../../lib/tasks/projectView'
 import { TaskView } from '../../lib/tasks/taskView'
 import { trackEvent } from '../../lib/telemetry'
+import { createTranslator, type AppLocale } from '../../lib/i18n'
 import { ChipListCell } from './cells/ChipListCell'
 import { DateCell } from './cells/DateCell'
 import { EstimateCell } from './cells/EstimateCell'
@@ -33,6 +34,7 @@ export interface TaskHeaderProps {
   entry: VaultEntry
   entries: VaultEntry[]
   onUpdate: TaskUpdate
+  locale?: AppLocale
 }
 
 function wikilinkArray(targets: string[]): string[] {
@@ -55,8 +57,9 @@ function trackPropertyEdit(property: TaskTelemetryProperty): void {
   trackEvent('task_property_edited', { property })
 }
 
-export function TaskHeader({ entry, entries, onUpdate }: TaskHeaderProps) {
+export function TaskHeader({ entry, entries, onUpdate, locale = 'en' }: TaskHeaderProps) {
   const task = useMemo(() => new TaskView(entry), [entry])
+  const t = useMemo(() => createTranslator(locale), [locale])
   const projectStatuses = useMemo(
     () => statusesForProject(entries, task.project),
     [entries, task.project],
@@ -100,30 +103,50 @@ export function TaskHeader({ entry, entries, onUpdate }: TaskHeaderProps) {
       className="flex flex-wrap items-center gap-3 border-b px-4 py-3"
       data-testid="task-header"
     >
-      <StatusPillCell value={task.status} options={projectStatuses} onChange={handleStatus} />
-      <PriorityCell value={task.priority} onChange={handlePriority} />
-      <DateCell label="Due" value={task.due} onChange={handleDate('due')} />
-      <DateCell label="Start" value={task.start} onChange={handleDate('start')} />
-      <DateCell label="Done" value={task.completed} onChange={handleDate('completed')} />
-      <EstimateCell value={task.estimate} onChange={handleEstimate} />
+      <StatusPillCell
+        value={task.status}
+        options={projectStatuses}
+        onChange={handleStatus}
+        placeholder={t('tasks.cell.status')}
+      />
+      <PriorityCell value={task.priority} onChange={handlePriority} placeholder={t('tasks.cell.priority')} />
+      <DateCell
+        label={t('tasks.cell.due')}
+        value={task.due}
+        onChange={handleDate('due')}
+        clearLabel={t('tasks.cell.clear')}
+      />
+      <DateCell
+        label={t('tasks.cell.start')}
+        value={task.start}
+        onChange={handleDate('start')}
+        clearLabel={t('tasks.cell.clear')}
+      />
+      <DateCell
+        label={t('tasks.cell.completed')}
+        value={task.completed}
+        onChange={handleDate('completed')}
+        clearLabel={t('tasks.cell.clear')}
+      />
+      <EstimateCell value={task.estimate} onChange={handleEstimate} placeholder={t('tasks.cell.estimate')} />
       <ChipListCell
-        label="Labels"
+        label={t('tasks.cell.labels')}
         values={task.labels}
         onChange={handleLabels}
-        placeholder="Add label"
+        placeholder={t('tasks.cell.addLabel')}
       />
-      <ProjectCell value={task.project} onChange={handleProject} />
+      <ProjectCell value={task.project} onChange={handleProject} placeholder={t('tasks.cell.project')} />
       <ChipListCell
-        label="Assignees"
+        label={t('tasks.cell.assignees')}
         values={task.assignees}
         onChange={handleAssignees}
-        placeholder="Add assignee"
+        placeholder={t('tasks.cell.addAssignee')}
       />
       <ChipListCell
-        label="Blocked by"
+        label={t('tasks.cell.blockedBy')}
         values={task.blockedBy}
         onChange={handleBlockedBy}
-        placeholder="Add task"
+        placeholder={t('tasks.cell.addBlockedBy')}
       />
     </header>
   )

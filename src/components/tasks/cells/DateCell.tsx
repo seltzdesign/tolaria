@@ -14,6 +14,7 @@ export interface DateCellProps {
   value: DateOrDateTime | null
   onChange: (value: DateOrDateTime | null) => void
   disabled?: boolean
+  clearLabel?: string
 }
 
 function dateToIsoDate(date: Date): string {
@@ -38,7 +39,13 @@ function applyDate(previous: DateOrDateTime | null, newDate: string): DateOrDate
   return { kind: 'date', date: newDate }
 }
 
-export function DateCell({ label, value, onChange, disabled = false }: DateCellProps) {
+export function DateCell({
+  label,
+  value,
+  onChange,
+  disabled = false,
+  clearLabel = 'Clear',
+}: DateCellProps) {
   const [open, setOpen] = useState(false)
   const display = value ? formatDateOrDateTime(value) : null
   const selected = value ? isoDateToDate(formatDateOrDateTime(value)) : undefined
@@ -90,7 +97,7 @@ export function DateCell({ label, value, onChange, disabled = false }: DateCellP
                 onClick={handleClear}
                 data-testid={`task-date-clear-${label.toLowerCase()}`}
               >
-                Clear
+                {clearLabel}
               </Button>
             </div>
           )

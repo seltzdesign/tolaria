@@ -5,9 +5,15 @@ export interface ProjectCellProps {
   value: string | null
   onChange: (value: string | null) => void
   disabled?: boolean
+  placeholder?: string
 }
 
-export function ProjectCell({ value, onChange, disabled = false }: ProjectCellProps) {
+export function ProjectCell({
+  value,
+  onChange,
+  disabled = false,
+  placeholder = 'Project',
+}: ProjectCellProps) {
   const [draft, setDraft] = useState(value ?? '')
   const [lastValue, setLastValue] = useState<string | null>(value)
   if (value !== lastValue) {
@@ -24,7 +30,7 @@ export function ProjectCell({ value, onChange, disabled = false }: ProjectCellPr
   return (
     <Input
       value={draft}
-      placeholder="Project"
+      placeholder={placeholder}
       disabled={disabled}
       onChange={(event) => setDraft(event.target.value)}
       onBlur={commit}

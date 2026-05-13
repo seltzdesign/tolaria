@@ -890,6 +890,9 @@ Managed by `useSettings` hook and `SettingsPanel` component. `theme_mode` is ins
 ### Frontend helpers
 - **`src/lib/releaseChannel.ts`** — Normalizes persisted channel values so legacy or invalid settings fall back to Stable, while Stable serializes back to `null`.
 - **`src/lib/appUpdater.ts`** — Thin wrapper around the Tauri updater commands. Keeps the React hook free of endpoint-selection details.
+- **`src/lib/tasks/dateOrDateTime.ts`** — Mirror of the Rust `DateOrDateTime` parser/formatter. Accepts ISO date or RFC 3339 datetime; naive datetimes are promoted to a fixed offset from the local timezone so round-trips stay stable.
+- **`src/lib/tasks/taskView.ts` / `projectView.ts`** — Read-only typed views over `VaultEntry` for `type: task` / `type: project` notes. Mirror the Rust accessors in [`src-tauri/src/vault/task.rs`](../src-tauri/src/vault/task.rs); the entry remains the source of truth.
+- **`src/hooks/useTasks.ts`** — Thin wrapper around the `create_task` / `create_project` Tauri commands for the lazy-seeded task/project creation path. Update and list flows reuse the existing frontmatter and vault-scan pipelines.
 
 ### Rust
 - **`src-tauri/src/app_updater.rs`** — Chooses the correct update endpoint and adapts Tauri updater results into frontend-friendly payloads. Stable uses the public `stable/latest.json` feed. Alpha first resolves the newest non-draft `alpha-vYYYY.M.D-alpha.NNNN` GitHub Release asset named `alpha-latest.json`, then falls back to the public `alpha/latest.json` feed if the release lookup is unavailable.

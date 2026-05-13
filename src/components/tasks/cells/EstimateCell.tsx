@@ -5,6 +5,7 @@ export interface EstimateCellProps {
   value: number | null
   onChange: (value: number | null) => void
   disabled?: boolean
+  placeholder?: string
 }
 
 function parseEstimate(raw: string): number | null {
@@ -19,7 +20,12 @@ function draftFromValue(value: number | null): string {
   return value === null ? '' : String(value)
 }
 
-export function EstimateCell({ value, onChange, disabled = false }: EstimateCellProps) {
+export function EstimateCell({
+  value,
+  onChange,
+  disabled = false,
+  placeholder = 'Estimate',
+}: EstimateCellProps) {
   const [draft, setDraft] = useState(() => draftFromValue(value))
   const [lastValue, setLastValue] = useState<number | null>(value)
   if (value !== lastValue) {
@@ -38,7 +44,7 @@ export function EstimateCell({ value, onChange, disabled = false }: EstimateCell
       min={0}
       step="0.5"
       value={draft}
-      placeholder="Estimate"
+      placeholder={placeholder}
       disabled={disabled}
       onChange={(event) => setDraft(event.target.value)}
       onBlur={commit}
