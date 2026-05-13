@@ -73,13 +73,14 @@ import {
 } from './hooks/useNeighborhoodSelection'
 import { createViewFilename } from './utils/viewFilename'
 import { nextViewOrder } from './utils/viewOrdering'
+import { viewMatchesSelection, viewVaultPath } from './utils/viewIdentity'
 import { ConflictResolverModal } from './components/ConflictResolverModal'
 import { ConfirmDeleteDialog } from './components/ConfirmDeleteDialog'
 import { DeleteProgressNotice } from './components/DeleteProgressNotice'
 import { UpdateBanner } from './components/UpdateBanner'
 import { invoke } from '@tauri-apps/api/core'
 import { isTauri, mockInvoke } from './mock-tauri'
-import type { SidebarSelection, InboxPeriod, VaultEntry, ViewDefinition, WorkspaceIdentity } from './types'
+import type { SidebarSelection, InboxPeriod, ModifiedFile, VaultEntry, ViewDefinition, ViewFile, WorkspaceIdentity } from './types'
 import type { NoteListItem } from './utils/ai-context'
 import { initializeNoteProperties } from './utils/initializeNoteProperties'
 import { filterEntries, filterInboxEntries, type NoteListFilter } from './utils/noteListHelpers'
@@ -93,6 +94,8 @@ import { openNoteListPropertiesPicker } from './components/note-list/noteListPro
 import type { NoteListMultiSelectionCommands } from './components/note-list/multiSelectionCommands'
 import { focusNoteIconPropertyEditor } from './components/noteIconPropertyEvents'
 import { trackEvent } from './lib/telemetry'
+import { areAiFeaturesEnabled } from './lib/aiFeatures'
+import { useAppCommandAiActions } from './hooks/useAppCommandAiActions'
 import { TOLARIA_DOCS_URL } from './constants/feedback'
 import { openExternalUrl } from './utils/url'
 import {
@@ -146,6 +149,24 @@ declare global {
 
 const DEFAULT_SELECTION: SidebarSelection = INBOX_SELECTION
 
+function modifiedFileKey(file: ModifiedFile): string {
+  return `${file.vaultPath ?? ''}\0${file.relativePath}\0${file.status}`
+}
+
+function activeVaultModifiedFiles(files: ModifiedFile[], vaultPath: string): ModifiedFile[] {
+  return files.map((file) => ({ ...file, vaultPath: file.vaultPath ?? vaultPath }))
+}
+
+function mergeModifiedFiles(...groups: ModifiedFile[][]): ModifiedFile[] {
+  const byKey = new Map<string, ModifiedFile>()
+  for (const group of groups) {
+    for (const file of group) {
+      byKey.set(modifiedFileKey(file), file)
+    }
+  }
+  return [...byKey.values()]
+}
+
 function shouldPreferOnboardingVaultPath(
   onboardingState: { status: string; vaultPath?: string },
   vaults: Array<{ path: string }>,
@@ -164,6 +185,40 @@ function canCustomizeColumnsForSelection(
   if (selection.kind !== 'filter') return false
   if (selection.filter === 'all') return true
   return explicitOrganizationEnabled && selection.filter === 'inbox'
+}
+
+function viewsForVault(views: ViewFile[], vaultPath: string): ViewFile[] {
+  return views.filter((view) => !view.rootPath || view.rootPath === vaultPath)
+}
+
+function viewSelection(filename: string, rootPath?: string): SidebarSelection {
+  return rootPath
+    ? { kind: 'view', filename, rootPath }
+    : { kind: 'view', filename }
+}
+
+function savedViewFilename(
+  definition: ViewDefinition,
+  editingView: { filename: string } | null,
+  existingViews: ViewFile[],
+): string {
+  return editingView
+    ? editingView.filename
+    : createViewFilename(definition.name, existingViews.map((view) => view.filename))
+}
+
+function savedViewDefinition(
+  definition: ViewDefinition,
+  editingView: { definition: ViewDefinition } | null,
+  existingViews: ViewFile[],
+): ViewDefinition {
+  return editingView
+    ? { ...editingView.definition, ...definition }
+    : { ...definition, order: nextViewOrder(existingViews) }
+}
+
+function shouldPreserveViewRootPath(views: ViewFile[], editingRootPath?: string): boolean {
+  return Boolean(editingRootPath) || views.some((view) => view.rootPath)
 }
 
 /** Wraps useEditorSave to also keep outgoingLinks in sync on save and on content change. */
@@ -203,15 +258,23 @@ function App() {
     void openExternalUrl(TOLARIA_DOCS_URL)
   }, [])
   const networkStatus = useNetworkStatus()
+  const { settings, loaded: settingsLoaded, saveSettings } = useSettings()
+  const aiFeaturesEnabled = areAiFeaturesEnabled(settings)
+  const effectiveShowAIChat = aiFeaturesEnabled && showAIChat
 
   useEffect(() => {
     const handleOpenAiChat = () => {
+      if (!aiFeaturesEnabled) return
       if (!showAIChat) toggleAIChat()
     }
 
     window.addEventListener(OPEN_AI_CHAT_EVENT, handleOpenAiChat)
     return () => window.removeEventListener(OPEN_AI_CHAT_EVENT, handleOpenAiChat)
-  }, [showAIChat, toggleAIChat])
+  }, [aiFeaturesEnabled, showAIChat, toggleAIChat])
+
+  useEffect(() => {
+    if (!aiFeaturesEnabled && showAIChat) toggleAIChat()
+  }, [aiFeaturesEnabled, showAIChat, toggleAIChat])
 
   // onSwitch closure captures `notes` declared below — safe because it's only
   // called on user interaction, never during render (refs inside the hook
@@ -265,7 +328,7 @@ function App() {
     registerVault: registerVaultSelection,
   }, vaultSwitcher.loaded)
   const aiAgentsStatus = useAiAgentsStatus()
-  const aiAgentsOnboarding = useAiAgentsOnboarding(onboarding.state.status === 'ready' && !noteWindowParams)
+  const aiAgentsOnboarding = useAiAgentsOnboarding(aiFeaturesEnabled && onboarding.state.status === 'ready' && !noteWindowParams)
 
   // Onboarding can briefly own the vault path for a newly created/opened vault
   // before the persisted switcher catches up, but once the path is already in
@@ -275,7 +338,6 @@ function App() {
       ? onboarding.state.vaultPath
       : vaultSwitcher.vaultPath
   )
-  const { settings, loaded: settingsLoaded, saveSettings } = useSettings()
   const [settingsInitialSectionId, setSettingsInitialSectionId] = useState<string | null>(null)
   const {
     folderVaults,
@@ -306,7 +368,7 @@ function App() {
   })
 
   const vault = useVaultLoader(
-    noteWindowParams ? '' : resolvedPath,
+    resolvedPath,
     graphVaults,
     multiWorkspaceEnabled ? defaultWorkspacePath : null,
     folderVaults,
@@ -346,12 +408,13 @@ function App() {
     status: vaultAiGuidanceStatus,
     refresh: refreshVaultAiGuidance,
   } = useVaultAiGuidanceStatus(
-    resolvedPath,
+    aiFeaturesEnabled ? resolvedPath : null,
     buildVaultAiGuidanceRefreshKey(vault.entries),
   )
   const { config: vaultConfig, updateConfig } = useVaultConfig(resolvedPath)
   const explicitOrganizationEnabled = isExplicitOrganizationEnabled(vaultConfig.inbox?.explicitOrganization)
   const effectiveSelection = sanitizeSelectionForOrganization(selection, vaultConfig.inbox?.explicitOrganization)
+  const isChangesSelection = effectiveSelection.kind === 'filter' && effectiveSelection.filter === 'changes'
 
   useSelectionSanitizer({
     effectiveSelection,
@@ -418,9 +481,9 @@ function App() {
   const refreshGitModifiedFiles = useCallback(async () => {
     await Promise.all([
       loadDefaultVaultModifiedFiles(),
-      loadAllGitModifiedFiles(),
+      loadAllGitModifiedFiles({ includeStats: isChangesSelection }),
     ])
-  }, [loadAllGitModifiedFiles, loadDefaultVaultModifiedFiles])
+  }, [isChangesSelection, loadAllGitModifiedFiles, loadDefaultVaultModifiedFiles])
   const loadVaultModifiedFiles = refreshGitModifiedFiles
 
   useEffect(() => {
@@ -852,11 +915,17 @@ function App() {
     openNoteInNewWindow(entry.path, vaultPathForEntry(entry, resolvedPath), entry.title)
   }, [resolvedPath])
 
-  const allGitModifiedFiles = gitSurfaces.allModifiedFiles
+  const allGitModifiedFiles = useMemo(
+    () => mergeModifiedFiles(
+      gitSurfaces.allModifiedFiles,
+      activeVaultModifiedFiles(vault.modifiedFiles, resolvedPath),
+    ),
+    [gitSurfaces.allModifiedFiles, resolvedPath, vault.modifiedFiles],
+  )
   const selectedChangesModifiedFiles = gitSurfaces.changesModifiedFiles
   const commitModifiedFiles = gitSurfaces.commitModifiedFiles
   const changesRepositoryPath = gitSurfaces.changesRepositoryPath
-  const gitModifiedCount = gitSurfaces.totalModifiedCount
+  const gitModifiedCount = allGitModifiedFiles.length
 
   const {
     activeDeletedFile,
@@ -926,6 +995,11 @@ function App() {
   const loadModifiedFiles = refreshGitModifiedFiles
 
   useEffect(() => {
+    if (!isChangesSelection) return
+    void loadModifiedFilesForRepository(changesRepositoryPath, { includeStats: true })
+  }, [changesRepositoryPath, isChangesSelection, loadModifiedFilesForRepository])
+
+  useEffect(() => {
     if (modifiedFilesSignature.length === 0) return
     recordAutoGitActivity()
   }, [modifiedFilesSignature, recordAutoGitActivity])
@@ -953,12 +1027,15 @@ function App() {
       ? notes.tabs.find((tab) => tab.entry.path === notes.activeTabPath)
       : null
     if (activeTab) {
-      await loadModifiedFilesForRepository(vaultPathForEntry(activeTab.entry, resolvedPath))
+      await loadModifiedFilesForRepository(vaultPathForEntry(activeTab.entry, resolvedPath), {
+        includeStats: isChangesSelection,
+      })
     }
     recordAutoGitActivity()
     return result
   }, [
     handleAppSave,
+    isChangesSelection,
     loadModifiedFilesForRepository,
     notes.activeTabPath,
     notes.tabs,
@@ -1037,7 +1114,7 @@ function App() {
     deleteActions.handleDeleteNote(typeEntry.path)
   }, [deleteActions, visibleEntries])
 
-  const shouldLoadGitHistory = !layout.inspectorCollapsed && !showAIChat
+  const shouldLoadGitHistory = !layout.inspectorCollapsed && !effectiveShowAIChat
   const gitHistory = useGitHistory(notes.activeTabPath, loadGitHistoryForPath, shouldLoadGitHistory)
 
   const handleCreateType = useCallback(async (name: string) => {
@@ -1077,21 +1154,22 @@ function App() {
 
   const handleCreateOrUpdateView = useCallback(async (definition: ViewDefinition) => {
     const editing = dialogs.editingView
-    const filename = editing
-      ? editing.filename
-      : createViewFilename(definition.name, vault.views.map((view) => view.filename))
-    const nextDefinition = editing
-      ? { ...editing.definition, ...definition }
-      : { ...definition, order: nextViewOrder(vault.views) }
+    const activeVaultViews = viewsForVault(vault.views, resolvedPath)
+    const targetVaultPath = editing?.rootPath ?? resolvedPath
+    const filename = savedViewFilename(definition, editing, activeVaultViews)
+    const nextDefinition = savedViewDefinition(definition, editing, activeVaultViews)
     const target = isTauri() ? invoke : mockInvoke
     try {
-      await target('save_view_cmd', { vaultPath: resolvedPath, filename, definition: nextDefinition })
+      await target('save_view_cmd', { vaultPath: targetVaultPath, filename, definition: nextDefinition })
       trackEvent(editing ? 'view_updated' : 'view_created')
       await vault.reloadViews()
       await vault.reloadVault()
       vault.reloadFolders()
       setToastMessage(editing ? `View "${nextDefinition.name}" updated` : `View "${nextDefinition.name}" created`)
-      handleSetSelection({ kind: 'view', filename })
+      handleSetSelection(viewSelection(
+        filename,
+        shouldPreserveViewRootPath(vault.views, editing?.rootPath) ? targetVaultPath : undefined,
+      ))
       return true
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
@@ -1100,21 +1178,22 @@ function App() {
     }
   }, [resolvedPath, vault, handleSetSelection, dialogs.editingView, setToastMessage])
 
-  const handleUpdateViewDefinition = useCallback(async (filename: string, patch: Partial<ViewDefinition>) => {
-    const existing = vault.views.find((view) => view.filename === filename)
+  const handleUpdateViewDefinition = useCallback(async (filename: string, patch: Partial<ViewDefinition>, rootPath?: string) => {
+    const existing = vault.views.find((view) => viewMatchesSelection(view, viewSelection(filename, rootPath)))
     if (!existing) return
 
+    const targetVaultPath = viewVaultPath(existing, resolvedPath)
     const target = isTauri() ? invoke : mockInvoke
     await target('save_view_cmd', {
-      vaultPath: resolvedPath,
+      vaultPath: targetVaultPath,
       filename,
       definition: { ...existing.definition, ...patch },
     })
     await vault.reloadViews()
   }, [resolvedPath, vault])
 
-  const handleSidebarUpdateViewDefinition = useCallback((filename: string, patch: Partial<ViewDefinition>) => {
-    void handleUpdateViewDefinition(filename, patch)
+  const handleSidebarUpdateViewDefinition = useCallback((filename: string, patch: Partial<ViewDefinition>, rootPath?: string) => {
+    void handleUpdateViewDefinition(filename, patch, rootPath)
       .then(() => {
         trackEvent('view_updated', { source: 'sidebar_view_actions' })
         if (typeof patch.name === 'string') setToastMessage(`View "${patch.name}" renamed`)
@@ -1125,18 +1204,22 @@ function App() {
       })
   }, [handleUpdateViewDefinition, setToastMessage])
 
-  const handleEditView = useCallback((filename: string) => {
-    const view = vault.views.find((v) => v.filename === filename)
-    if (view) dialogs.openEditView(filename, view.definition)
+  const handleEditView = useCallback((filename: string, rootPath?: string) => {
+    const view = vault.views.find((candidate) => viewMatchesSelection(candidate, viewSelection(filename, rootPath)))
+    if (view) dialogs.openEditView(filename, view.definition, view.rootPath)
   }, [vault.views, dialogs])
 
-  const handleDeleteView = useCallback(async (filename: string) => {
+  const handleDeleteView = useCallback(async (filename: string, rootPath?: string) => {
+    const existing = vault.views.find((view) => viewMatchesSelection(view, viewSelection(filename, rootPath)))
+    if (!existing) return
+
+    const targetVaultPath = viewVaultPath(existing, resolvedPath)
     const target = isTauri() ? invoke : mockInvoke
     try {
-      await target('delete_view_cmd', { vaultPath: resolvedPath, filename })
+      await target('delete_view_cmd', { vaultPath: targetVaultPath, filename })
     } catch (err) {
       if (isActiveVaultUnavailableError(err)) {
-        vault.markVaultUnavailable(resolvedPath)
+        vault.markVaultUnavailable(targetVaultPath)
         return
       }
       throw err
@@ -1144,7 +1227,7 @@ function App() {
     await vault.reloadViews()
     await vault.reloadVault()
     vault.reloadFolders()
-    if (selection.kind === 'view' && selection.filename === filename) {
+    if (selection.kind === 'view' && viewMatchesSelection(existing, selection)) {
       handleSetSelection({ kind: 'filter', filter: 'all' })
     }
     setToastMessage('View deleted')
@@ -1302,7 +1385,7 @@ function App() {
     dialogs.showCreateTypeDialog
     || dialogs.showQuickOpen
     || dialogs.showCommandPalette
-    || dialogs.showAIChat
+    || effectiveShowAIChat
     || dialogs.showSettings
     || dialogs.showCloneVault
     || dialogs.showSearch
@@ -1320,7 +1403,7 @@ function App() {
 
   const noteListColumnsLabel = useMemo(() => {
     if (effectiveSelection.kind === 'view') {
-      const selectedView = vault.views.find((view) => view.filename === effectiveSelection.filename)
+      const selectedView = vault.views.find((view) => viewMatchesSelection(view, effectiveSelection))
       return selectedView ? `Customize ${selectedView.definition.name} columns` : 'Customize View columns'
     }
 
@@ -1337,6 +1420,9 @@ function App() {
     onToast: setToastMessage,
     locale: appLocale,
   })
+  const canReorderSavedViews = useMemo(() => (
+    vault.views.every((view) => !view.rootPath)
+  ), [vault.views])
   const toggleDiffCommand = useCallback(() => diffToggleRef.current(), [])
   const toggleRawEditorCommand = useMemo(
     () => canToggleRichEditor ? () => rawToggleRef.current() : undefined,
@@ -1416,6 +1502,7 @@ function App() {
     setToastMessage,
   })
   const activeEditorVaultPath = activeTab ? vaultPathForEntry(activeTab.entry, resolvedPath) : resolvedPath
+  const commandAiActions = useAppCommandAiActions(aiFeaturesEnabled, dialogs, aiAgentsStatus, vaultAiGuidanceStatus, restoreVaultAiGuidanceCommand, aiAgentPreferences)
 
   const commands = useAppCommands({
     activeTabPath: notes.activeTabPath, activeTabPathRef: notes.activeTabPathRef,
@@ -1479,7 +1566,7 @@ function App() {
     onOpenVault: vaultSwitcher.handleOpenLocalFolder,
     onCreateEmptyVault: vaultSwitcher.handleCreateEmptyVault,
     onCreateType: dialogs.openCreateType,
-    onToggleAIChat: dialogs.toggleAIChat,
+    ...commandAiActions,
     onCheckForUpdates: handleCheckForUpdates,
     onRemoveActiveVault: removeActiveVaultCommand,
     onRestoreGettingStarted: cloneGettingStartedVault,
@@ -1492,14 +1579,6 @@ function App() {
     onSetThemeMode: handleSetThemeMode,
     mcpStatus,
     onInstallMcp: openMcpSetupDialog,
-    onOpenAiAgents: dialogs.openSettings,
-    aiAgentsStatus,
-    vaultAiGuidanceStatus,
-    onRestoreVaultAiGuidance: restoreVaultAiGuidanceCommand,
-    selectedAiAgent: aiAgentPreferences.defaultAiAgent,
-    onSetDefaultAiAgent: aiAgentPreferences.setDefaultAiAgent,
-    onCycleDefaultAiAgent: aiAgentPreferences.cycleDefaultAiAgent,
-    selectedAiAgentLabel: aiAgentPreferences.defaultAiAgentLabel,
     onReloadVault: handleManualVaultReload,
     onRepairVault: handleRepairVault,
     onSetNoteIcon: handleSetNoteIconCommand,
@@ -1583,8 +1662,7 @@ function App() {
     )
   }
 
-  const isChangesSelection = effectiveSelection.kind === 'filter' && effectiveSelection.filter === 'changes'
-  const noteListModifiedFiles = isChangesSelection ? selectedChangesModifiedFiles : allGitModifiedFiles
+  const noteListModifiedFiles = isChangesSelection ? selectedChangesModifiedFiles : undefined
   const noteListModifiedFilesError = isChangesSelection ? gitSurfaces.changesModifiedFilesError : null
 
   return (
@@ -1594,7 +1672,7 @@ function App() {
           {sidebarVisible && (
             <>
               <div className="app__sidebar" style={{ width: layout.sidebarWidth }}>
-                <Sidebar entries={visibleEntries} folders={vault.folders} views={vault.views} selection={effectiveSelection} onSelect={handleSetSelection} onSelectNote={notes.handleSelectNote} onSelectFavorite={handleOpenFavorite} onReorderFavorites={entryActions.handleReorderFavorites} onCreateType={notes.handleCreateNoteImmediate} onCreateNewType={dialogs.openCreateType} onCustomizeType={entryActions.handleCustomizeType} onUpdateTypeTemplate={entryActions.handleUpdateTypeTemplate} onReorderSections={entryActions.handleReorderSections} onRenameSection={entryActions.handleRenameSection} onDeleteType={handleDeleteType} onToggleTypeVisibility={entryActions.handleToggleTypeVisibility} onCreateFolder={handleCreateFolder} onRenameFolder={folderActions.renameFolder} onDeleteFolder={folderActions.requestDeleteFolder} folderFileActions={fileActions.folderActions} renamingFolderPath={folderActions.renamingFolderPath} onStartRenameFolder={folderActions.startFolderRename} onCancelRenameFolder={folderActions.cancelFolderRename} onCreateView={dialogs.openCreateView} onEditView={handleEditView} onDeleteView={handleDeleteView} onUpdateViewDefinition={handleSidebarUpdateViewDefinition} onReorderViews={viewOrdering.onReorderViews} showInbox={explicitOrganizationEnabled} inboxCount={inboxCount} allNotesFileVisibility={allNotesFileVisibility} pluralizeTypeLabels={settings.sidebar_type_pluralization_enabled ?? true} onCollapse={handleCollapseSidebar} onGoBack={handleGoBack} onGoForward={handleGoForward} canGoBack={canGoBack} canGoForward={canGoForward} locale={appLocale} loading={isVaultContentLoading} vaultRootPath={resolvedPath} />
+                <Sidebar entries={visibleEntries} folders={vault.folders} views={vault.views} selection={effectiveSelection} onSelect={handleSetSelection} onSelectNote={notes.handleSelectNote} onSelectFavorite={handleOpenFavorite} onReorderFavorites={entryActions.handleReorderFavorites} onCreateType={notes.handleCreateNoteImmediate} onCreateNewType={dialogs.openCreateType} onCustomizeType={entryActions.handleCustomizeType} onUpdateTypeTemplate={entryActions.handleUpdateTypeTemplate} onReorderSections={entryActions.handleReorderSections} onRenameSection={entryActions.handleRenameSection} onDeleteType={handleDeleteType} onToggleTypeVisibility={entryActions.handleToggleTypeVisibility} onCreateFolder={handleCreateFolder} onRenameFolder={folderActions.renameFolder} onDeleteFolder={folderActions.requestDeleteFolder} folderFileActions={fileActions.folderActions} renamingFolderPath={folderActions.renamingFolderPath} onStartRenameFolder={folderActions.startFolderRename} onCancelRenameFolder={folderActions.cancelFolderRename} onCreateView={dialogs.openCreateView} onEditView={handleEditView} onDeleteView={handleDeleteView} onUpdateViewDefinition={handleSidebarUpdateViewDefinition} onReorderViews={canReorderSavedViews ? viewOrdering.onReorderViews : undefined} showInbox={explicitOrganizationEnabled} inboxCount={inboxCount} allNotesFileVisibility={allNotesFileVisibility} pluralizeTypeLabels={settings.sidebar_type_pluralization_enabled ?? true} onCollapse={handleCollapseSidebar} onGoBack={handleGoBack} onGoForward={handleGoForward} canGoBack={canGoBack} canGoForward={canGoForward} locale={appLocale} loading={isVaultContentLoading} vaultRootPath={resolvedPath} />
               </div>
               <ResizeHandle onResize={layout.handleSidebarResize} />
             </>
@@ -1616,7 +1694,7 @@ function App() {
               tabs={notes.tabs}
               activeTabPath={notes.activeTabPath}
               isVaultLoading={isVaultContentLoading}
-              entries={noteWindowParams && activeTab ? [activeTab.entry] : visibleEntries}
+              entries={visibleEntries}
               onNavigateWikilink={notes.handleNavigateWikilink}
               onLoadDiff={loadDiffForPath}
               onLoadDiffAtCommit={loadDiffAtCommitForPath}
@@ -1643,8 +1721,8 @@ function App() {
               onCreateAndOpenNote={notes.handleCreateNoteForRelationship}
               onChangeWorkspace={activeDeletedFile ? undefined : handleChangeWorkspace}
               onInitializeProperties={handleInitializeProperties}
-              showAIChat={dialogs.showAIChat}
-              onToggleAIChat={dialogs.toggleAIChat}
+              showAIChat={effectiveShowAIChat}
+              onToggleAIChat={aiFeaturesEnabled ? dialogs.toggleAIChat : undefined}
               vaultPath={activeEditorVaultPath}
               vaultPaths={writableVaultPaths}
               noteList={aiNoteList}
@@ -1687,7 +1765,7 @@ function App() {
         </div>
         <UpdateBanner status={updateStatus} actions={updateActions} locale={appLocale} />
         <RenameDetectedBanner renames={detectedRenames} onUpdate={handleUpdateWikilinks} onDismiss={handleDismissRenames} />
-        <StatusBar noteCount={visibleEntries.length} modifiedCount={gitModifiedCount} vaultPath={resolvedPath} defaultWorkspacePath={defaultWorkspacePath} vaults={vaultSwitcher.allVaults} multiWorkspaceEnabled={multiWorkspaceEnabled} onSwitchVault={vaultSwitcher.switchVault} onSetDefaultWorkspace={vaultSwitcher.setDefaultWorkspace} onOpenSettings={handleOpenSettings} onOpenVaultSettings={handleOpenVaultSettings} onOpenFeedback={openFeedback} onOpenDocs={openDocs} onOpenLocalFolder={vaultSwitcher.handleOpenLocalFolder} onCreateEmptyVault={vaultSwitcher.handleCreateEmptyVault} onCloneVault={dialogs.openCloneVault} onCloneGettingStarted={cloneGettingStartedVault} onClickPending={() => handleSetSelection({ kind: 'filter', filter: 'changes' })} onClickPulse={() => handleSetSelection({ kind: 'filter', filter: 'pulse' })} onCommitPush={handleCommitPush} onInitializeGit={openGitSetupDialog} isOffline={networkStatus.isOffline} isGitVault={isGitVault} isVaultReloading={vault.isReloading || isVaultContentLoading} syncStatus={autoSync.syncStatus} lastSyncTime={autoSync.lastSyncTime} conflictCount={autoSync.conflictFiles.length} remoteStatus={autoSync.remoteStatus} onTriggerSync={autoSync.triggerSync} onPullAndPush={autoSync.pullAndPush} onOpenConflictResolver={conflictFlow.handleOpenConflictResolver} zoomLevel={zoom.zoomLevel} themeMode={documentThemeMode} onZoomReset={zoom.zoomReset} onToggleThemeMode={settingsLoaded ? handleToggleThemeMode : undefined} buildNumber={buildNumber} onCheckForUpdates={handleCheckForUpdates} onRemoveVault={vaultSwitcher.removeVault} onUpdateWorkspaceIdentity={vaultSwitcher.updateWorkspaceIdentity} mcpStatus={mcpStatus} onInstallMcp={openMcpSetupDialog} aiAgentsStatus={aiAgentsStatus} vaultAiGuidanceStatus={vaultAiGuidanceStatus} defaultAiAgent={aiAgentPreferences.defaultAiAgent} defaultAiTarget={settings.default_ai_target ?? undefined} aiModelProviders={settings.ai_model_providers ?? []} onSetDefaultAiAgent={aiAgentPreferences.setDefaultAiAgent} onSetDefaultAiTarget={aiAgentPreferences.setDefaultAiTarget} onRestoreVaultAiGuidance={() => { void restoreVaultAiGuidance() }} locale={appLocale} />
+        <StatusBar noteCount={visibleEntries.length} modifiedCount={gitModifiedCount} vaultPath={resolvedPath} defaultWorkspacePath={defaultWorkspacePath} vaults={vaultSwitcher.allVaults} multiWorkspaceEnabled={multiWorkspaceEnabled} onSwitchVault={vaultSwitcher.switchVault} onSetDefaultWorkspace={vaultSwitcher.setDefaultWorkspace} onOpenSettings={handleOpenSettings} onOpenVaultSettings={handleOpenVaultSettings} onOpenFeedback={openFeedback} onOpenDocs={openDocs} onOpenLocalFolder={vaultSwitcher.handleOpenLocalFolder} onCreateEmptyVault={vaultSwitcher.handleCreateEmptyVault} onCloneVault={dialogs.openCloneVault} onCloneGettingStarted={cloneGettingStartedVault} onClickPending={() => handleSetSelection({ kind: 'filter', filter: 'changes' })} onClickPulse={() => handleSetSelection({ kind: 'filter', filter: 'pulse' })} onCommitPush={handleCommitPush} commitActionPending={commitFlow.isOpeningCommitDialog} onInitializeGit={openGitSetupDialog} isOffline={networkStatus.isOffline} isGitVault={isGitVault} isVaultReloading={vault.isReloading || isVaultContentLoading} syncStatus={autoSync.syncStatus} lastSyncTime={autoSync.lastSyncTime} conflictCount={autoSync.conflictFiles.length} remoteStatus={autoSync.remoteStatus} onTriggerSync={autoSync.triggerSync} onPullAndPush={autoSync.pullAndPush} onOpenConflictResolver={conflictFlow.handleOpenConflictResolver} zoomLevel={zoom.zoomLevel} themeMode={documentThemeMode} onZoomReset={zoom.zoomReset} onToggleThemeMode={settingsLoaded ? handleToggleThemeMode : undefined} buildNumber={buildNumber} onCheckForUpdates={handleCheckForUpdates} onRemoveVault={vaultSwitcher.removeVault} onUpdateWorkspaceIdentity={vaultSwitcher.updateWorkspaceIdentity} aiFeaturesEnabled={aiFeaturesEnabled} mcpStatus={mcpStatus} onInstallMcp={openMcpSetupDialog} aiAgentsStatus={aiFeaturesEnabled ? aiAgentsStatus : undefined} vaultAiGuidanceStatus={aiFeaturesEnabled ? vaultAiGuidanceStatus : undefined} defaultAiAgent={aiFeaturesEnabled ? aiAgentPreferences.defaultAiAgent : undefined} defaultAiTarget={aiFeaturesEnabled ? settings.default_ai_target ?? undefined : undefined} aiModelProviders={aiFeaturesEnabled ? settings.ai_model_providers ?? [] : []} onSetDefaultAiAgent={aiFeaturesEnabled ? aiAgentPreferences.setDefaultAiAgent : undefined} onSetDefaultAiTarget={aiFeaturesEnabled ? aiAgentPreferences.setDefaultAiTarget : undefined} onRestoreVaultAiGuidance={aiFeaturesEnabled ? () => { void restoreVaultAiGuidance() } : undefined} locale={appLocale} />
         <GitSetupDialog open={shouldShowGitSetupDialog} onInitGit={handleInitGitRepo} onDismiss={dismissGitSetupDialog} />
         <DeleteProgressNotice count={deleteActions.pendingDeleteCount} />
         <Toast message={toastMessage} onDismiss={() => setToastMessage(null)} />
@@ -1698,6 +1776,7 @@ function App() {
           entries={visibleEntries}
           aiAgentReady={aiAgentPreferences.defaultAiAgentReady}
           aiAgentLabel={aiAgentPreferences.defaultAiAgentLabel}
+          aiModeEnabled={aiFeaturesEnabled}
           locale={appLocale}
           onClose={dialogs.closeCommandPalette}
         />

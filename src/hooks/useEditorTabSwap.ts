@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, type MutableRefObject } from 'react'
 import type { useCreateBlockNote } from '@blocknote/react'
 import type { VaultEntry } from '../types'
-import { splitFrontmatter, restoreWikilinksInBlocks } from '../utils/wikilinks'
 import { compactMarkdown } from '../utils/compact-markdown'
-import { serializeDurableEditorBlocks } from '../utils/editorDurableMarkdown'
 import { failNoteOpenTrace, finishNoteOpenTrace } from '../utils/noteOpenPerformance'
-import { portableImageUrls } from '../utils/vaultImages'
+import {
+  serializeRichEditorBodyToMarkdown,
+  serializeRichEditorDocumentToMarkdown,
+} from '../utils/richEditorMarkdown'
 import { useEditorMountState, useLatestRef } from './editorTabSwapLifecycle'
 import {
   applyBlankStateToEditor,
@@ -122,8 +123,7 @@ function findActiveTab(options: {
 }
 
 function serializeEditorBody(editor: ReturnType<typeof useCreateBlockNote>): string {
-  const restored = restoreWikilinksInBlocks(editor.document)
-  return compactMarkdown(serializeDurableEditorBlocks(editor, restored))
+  return serializeRichEditorBodyToMarkdown(editor)
 }
 
 function trySerializeEditorBody(
@@ -174,6 +174,44 @@ function isUntitledRenameTransition(
   })
 }
 
+function activeEditorChangePath(options: {
+  prevActivePathRef: MutableRefObject<string | null>
+  editorContentPathRef: EditorContentPathRef
+}): string | null {
+  const { prevActivePathRef, editorContentPathRef } = options
+  const path = prevActivePathRef.current
+  if (!path || editorContentPathRef.current !== path) return null
+  return path
+}
+
+function previousContentForPath(options: {
+  path: string
+  tabs: Tab[]
+  cache: Map<string, CachedTabState>
+}): string | undefined {
+  const { path, tabs, cache } = options
+  return tabs.find(t => t.entry.path === path)?.content ?? cache.get(path)?.sourceContent
+}
+
+function serializedEditorChange(options: {
+  editor: ReturnType<typeof useCreateBlockNote>
+  path: string
+  previousContent: string
+  vaultPath?: string
+}): { blocks: CachedTabState['blocks'], content: string } | null {
+  const { editor, path, previousContent, vaultPath } = options
+  const blocks = editor.document
+  try {
+    return {
+      blocks,
+      content: serializeRichEditorDocumentToMarkdown(editor, previousContent, vaultPath, path),
+    }
+  } catch (error) {
+    console.warn('[editor] Skipped editor change because BlockNote document could not be serialized:', error)
+    return null
+  }
+}
+
 function useEditorChangeHandler(options: {
   editor: ReturnType<typeof useCreateBlockNote>
   tabsRef: MutableRefObject<Tab[]>
@@ -198,29 +236,31 @@ function useEditorChangeHandler(options: {
   } = options
 
   const propagateEditorChange = useCallback(() => {
-    const path = prevActivePathRef.current
+    const path = activeEditorChangePath({ prevActivePathRef, editorContentPathRef })
     if (!path) return
-    if (editorContentPathRef.current !== path) return
 
-    const tab = tabsRef.current.find(t => t.entry.path === path)
-    const previousContent = tab?.content ?? tabCacheRef.current.get(path)?.sourceContent
+    const previousContent = previousContentForPath({
+      path,
+      tabs: tabsRef.current,
+      cache: tabCacheRef.current,
+    })
     if (!previousContent) return
 
-    const blocks = editor.document
-    const rawBodyMarkdown = trySerializeEditorBody(editor, 'editor change')
-    if (rawBodyMarkdown === null) return
-    const bodyMarkdown = vaultPathRef.current
-      ? portableImageUrls(rawBodyMarkdown, vaultPathRef.current, path)
-      : rawBodyMarkdown
-    const [frontmatter] = splitFrontmatter(previousContent)
-    const nextContent = `${frontmatter}${bodyMarkdown}`
-    pendingLocalContentRef.current = { path, content: nextContent }
+    const next = serializedEditorChange({
+      editor,
+      path,
+      previousContent,
+      vaultPath: vaultPathRef.current,
+    })
+    if (!next) return
+
+    pendingLocalContentRef.current = { path, content: next.content }
     cacheResolvedEditorState(tabCacheRef.current, path, {
-      blocks,
+      blocks: next.blocks,
       scrollTop: readEditorScrollTop(),
-      sourceContent: nextContent,
+      sourceContent: next.content,
     }, vaultPathRef.current)
-    onContentChangeRef.current?.(path, nextContent)
+    onContentChangeRef.current?.(path, next.content)
   }, [editor, editorContentPathRef, onContentChangeRef, pendingLocalContentRef, prevActivePathRef, tabCacheRef, tabsRef, vaultPathRef])
 
   return useDebouncedEditorChange({ onFlush: propagateEditorChange, suppressChangeRef })
@@ -447,8 +487,8 @@ function handleStableActivePath(options: {
   if (rawModeJustEnded) {
     return !markRawModeReswapPending({ activeTabPath, cache, rawSwapPendingRef })
   }
-  if (currentEditorMatchesActiveTab({ activeTabPath, activeTab, editor, editorMountedRef })) {
-    return cacheStableActiveTabAndClearPending({
+  if (shouldKeepPendingLocalContent({ activeTabPath, activeTab, pendingLocalContentRef })) {
+    return consumePendingLocalContent({
       cache,
       activeTabPath,
       activeTab,
@@ -458,8 +498,8 @@ function handleStableActivePath(options: {
       pendingLocalContentRef,
     })
   }
-  if (shouldKeepPendingLocalContent({ activeTabPath, activeTab, pendingLocalContentRef })) {
-    return consumePendingLocalContent({
+  if (currentEditorMatchesActiveTab({ activeTabPath, activeTab, editor, editorMountedRef })) {
+    return cacheStableActiveTabAndClearPending({
       cache,
       activeTabPath,
       activeTab,

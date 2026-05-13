@@ -166,9 +166,21 @@ mod tests {
         assert_eq!(err, ACTIVE_VAULT_PATH_ERROR);
     }
 
-    #[test]
-    fn test_save_note_content_rejects_traversal_outside_active_vault() {
-        assert_note_write_rejects_escape(save_note_content);
+    #[tokio::test]
+    async fn test_save_note_content_rejects_traversal_outside_active_vault() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let vault_path = dir.path();
+        let escape_path = vault_path.join("../outside.md");
+
+        let err = save_note_content(
+            escape_path,
+            "# Outside\n".to_string(),
+            vault_path_arg(vault_path),
+        )
+        .await
+        .expect_err("expected traversal write to be rejected");
+
+        assert_eq!(err, ACTIVE_VAULT_PATH_ERROR);
     }
 
     #[test]
@@ -206,8 +218,8 @@ mod tests {
         assert_save_view_cmd_rejects_invalid_filename("con.yml");
     }
 
-    #[test]
-    fn test_reload_vault_invalidates_cache_and_rescans() {
+    #[tokio::test]
+    async fn test_reload_vault_invalidates_cache_and_rescans() {
         let dir = tempfile::TempDir::new().unwrap();
         let vault_path = dir.path();
         std::process::Command::new("git")
@@ -248,7 +260,7 @@ mod tests {
             .output()
             .unwrap();
 
-        let entries = list_vault(vault_path.into()).unwrap();
+        let entries = list_vault(vault_path.into()).await.unwrap();
         assert!(!entries[0].archived);
 
         std::fs::write(

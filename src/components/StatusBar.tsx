@@ -74,6 +74,7 @@ interface StatusBarProps {
   onClickPending?: () => void
   onClickPulse?: () => void
   onCommitPush?: () => void
+  commitActionPending?: boolean
   onInitializeGit?: () => void
   isOffline?: boolean
   isVaultReloading?: boolean
@@ -95,6 +96,7 @@ interface StatusBarProps {
   onCheckForUpdates?: () => void
   onRemoveVault?: (path: string) => void
   onUpdateWorkspaceIdentity?: (path: string, patch: Partial<VaultOption>) => void
+  aiFeaturesEnabled?: boolean
   mcpStatus?: McpStatus
   onInstallMcp?: () => void
   aiAgentsStatus?: AiAgentsStatus
@@ -131,6 +133,7 @@ function StatusBarPrimaryFromFooter({
   onClickPending,
   onClickPulse,
   onCommitPush,
+  commitActionPending = false,
   onInitializeGit,
   isOffline = false,
   isVaultReloading = false,
@@ -146,6 +149,7 @@ function StatusBarPrimaryFromFooter({
   onCheckForUpdates,
   onRemoveVault,
   onUpdateWorkspaceIdentity,
+  aiFeaturesEnabled = true,
   mcpStatus,
   onInstallMcp,
   aiAgentsStatus,
@@ -179,6 +183,7 @@ function StatusBarPrimaryFromFooter({
       onClickPending={onClickPending}
       onClickPulse={onClickPulse}
       onCommitPush={onCommitPush}
+      commitActionPending={commitActionPending}
       onInitializeGit={onInitializeGit}
       isOffline={isOffline}
       isVaultReloading={isVaultReloading}
@@ -194,7 +199,7 @@ function StatusBarPrimaryFromFooter({
       onCheckForUpdates={onCheckForUpdates}
       onRemoveVault={onRemoveVault}
       onUpdateWorkspaceIdentity={onUpdateWorkspaceIdentity}
-      mcpStatus={mcpStatus}
+      mcpStatus={aiFeaturesEnabled ? mcpStatus : undefined}
       onInstallMcp={onInstallMcp}
       aiAgentsStatus={aiAgentsStatus}
       vaultAiGuidanceStatus={vaultAiGuidanceStatus}

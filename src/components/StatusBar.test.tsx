@@ -656,6 +656,13 @@ describe('StatusBar', () => {
     expect(screen.queryByTestId('status-mcp')).not.toBeInTheDocument()
   })
 
+  it('hides MCP badge when AI features are disabled', () => {
+    render(
+      <StatusBar noteCount={100} vaultPath="/Users/luca/Laputa" vaults={vaults} onSwitchVault={vi.fn()} aiFeaturesEnabled={false} mcpStatus="not_installed" />
+    )
+    expect(screen.queryByTestId('status-mcp')).not.toBeInTheDocument()
+  })
+
   it('calls onInstallMcp when clicking MCP badge with not_installed status', () => {
     const onInstallMcp = vi.fn()
     render(
@@ -812,6 +819,31 @@ describe('StatusBar', () => {
     commitButton.focus()
     fireEvent.keyDown(commitButton, { key: 'Enter' })
     expect(onCommitPush).toHaveBeenCalledOnce()
+  })
+
+  it('shows Commit progress feedback and blocks duplicate activation while pending', () => {
+    const onCommitPush = vi.fn()
+    render(
+      <StatusBar
+        noteCount={100}
+        modifiedCount={5}
+        vaultPath="/Users/luca/Laputa"
+        vaults={vaults}
+        onSwitchVault={vi.fn()}
+        onCommitPush={onCommitPush}
+        commitActionPending
+      />
+    )
+    const commitButton = screen.getByTestId('status-commit-push')
+
+    expect(commitButton).toHaveAttribute('aria-busy', 'true')
+    expect(commitButton).toHaveAttribute('aria-disabled', 'true')
+    expect(commitButton.querySelector('.animate-spin')).not.toBeNull()
+
+    fireEvent.click(commitButton)
+    fireEvent.keyDown(commitButton, { key: 'Enter' })
+    fireEvent.keyDown(commitButton, { key: ' ' })
+    expect(onCommitPush).not.toHaveBeenCalled()
   })
 
   it('uses a local-only tooltip for the commit button when no remote is configured', async () => {

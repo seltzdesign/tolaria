@@ -144,14 +144,18 @@ pub fn validate_note_content(
 }
 
 #[tauri::command]
-pub fn save_note_content(
+pub async fn save_note_content(
     path: PathBuf,
     content: String,
     vault_path: Option<PathBuf>,
 ) -> Result<(), String> {
-    with_writable_note_path(path, vault_path, |validated_path| {
-        vault::save_note_content(validated_path, &content)
+    tokio::task::spawn_blocking(move || {
+        with_writable_note_path(path, vault_path, |validated_path| {
+            vault::save_note_content(validated_path, &content)
+        })
     })
+    .await
+    .map_err(|e| format!("Task panicked: {e}"))?
 }
 
 #[tauri::command]
@@ -266,8 +270,12 @@ pub fn copy_image_to_vault(
 }
 
 #[tauri::command]
-pub fn list_vault(path: PathBuf) -> Result<Vec<VaultEntry>, String> {
-    with_expanded_vault_root(path.as_path(), scan_visible_vault_entries)
+pub async fn list_vault(path: PathBuf) -> Result<Vec<VaultEntry>, String> {
+    tokio::task::spawn_blocking(move || {
+        with_expanded_vault_root(path.as_path(), scan_visible_vault_entries)
+    })
+    .await
+    .map_err(|e| format!("Task panicked: {e}"))?
 }
 
 #[tauri::command]
@@ -293,8 +301,8 @@ mod tests {
         dir.path().join(name)
     }
 
-    #[test]
-    fn note_content_commands_roundtrip_with_requested_vault() {
+    #[tokio::test]
+    async fn note_content_commands_roundtrip_with_requested_vault() {
         let dir = TempDir::new().unwrap();
         let root = vault_root(&dir);
         let note = note_path(&dir, "notes/command-note.md");
@@ -315,6 +323,7 @@ mod tests {
             "---\ntitle: Command Note\n---\n# Command Note\nBody\n".to_string(),
             Some(root.clone()),
         )
+        .await
         .unwrap();
         assert!(!sync_note_title(note.clone(), Some(root.clone())).unwrap());
 
@@ -323,6 +332,7 @@ mod tests {
             "# Updated Command Note\n".to_string(),
             Some(root.clone()),
         )
+        .await
         .unwrap();
         assert!(sync_note_title(note.clone(), Some(root.clone())).unwrap());
         assert!(get_note_content(note, Some(root))
@@ -330,8 +340,8 @@ mod tests {
             .contains("title: Command Note"));
     }
 
-    #[test]
-    fn note_content_commands_accept_windows_sensitive_valid_segments() {
+    #[tokio::test]
+    async fn note_content_commands_accept_windows_sensitive_valid_segments() {
         let dir = TempDir::new().unwrap();
         let root = vault_root(&dir);
         let note = root
@@ -344,6 +354,7 @@ mod tests {
             "# Windows-Sensitive Path\n\nBody\n".to_string(),
             Some(root.clone()),
         )
+        .await
         .unwrap();
 
         assert_eq!(
@@ -364,7 +375,7 @@ mod tests {
         );
         fs::write(dir.path().join("Projects/project.md"), "# Project\n").unwrap();
 
-        let entries = list_vault(root.clone()).unwrap();
+        let entries = list_vault(root.clone()).await.unwrap();
         assert!(entries.iter().any(|entry| entry.filename == "root.md"));
         assert!(entries.iter().any(|entry| entry.filename == "project.md"));
 

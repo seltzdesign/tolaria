@@ -75,7 +75,7 @@ Linux AppImage builds still use the user's system `git`. Before Tolaria spawns t
 
 The `settings.multi_workspace_enabled` flag turns the registered vault list into a unified graph. When enabled, `useVaultLoader` loads every available mounted vault, annotates entries with workspace provenance, and lets note lists, quick open, keyword search, backlinks, and wikilink navigation span those vaults.
 
-The selected/default vault remains the write and repository focus. New notes and Type documents use `defaultWorkspacePath` when it points at an available mounted vault, while Git status, commits, sync, folder tree, saved views, repair, and watcher behavior stay scoped to explicit repository roots.
+The selected/default vault remains the write and repository focus. New notes and Type documents use `defaultWorkspacePath` when it points at an available mounted vault, while Git status, commits, sync, folder tree, repair, and watcher behavior stay scoped to explicit repository roots. Saved Views are listed from every mounted vault with source-vault identity, so duplicate view filenames remain separate and edits persist back to the view's owning vault.
 
 The bottom-left `VaultMenu` exposes quick include/exclude controls and a `Manage vaults` entry. The Vaults settings section owns the full identity controls: display name, short label, read-only alias, accent color, removal, and default destination for new notes.
 
@@ -457,7 +457,7 @@ BASE_URL="http://localhost:5173" npx playwright test tests/smoke/<slug>.spec.ts
 3. **Tool action display**: Edit `src/components/AiActionCard.tsx`
 4. **Permission-mode UI and request plumbing**: Edit `src/lib/aiAgentPermissionMode.ts`, `src/components/AiPanel*.tsx`, `src/hooks/useCliAiAgent.ts`, and `src/utils/streamAiAgent.ts`
 5. **Shared CLI runtime behavior**: Edit `src-tauri/src/cli_agent_runtime.rs` for process lifecycle, prompt wrapping, version probing, and common Tolaria MCP path handling.
-6. **Agent-specific arguments/events**: Edit the per-agent adapter modules (`claude_cli.rs`, `codex_cli.rs`, `opencode_*`, `pi_*`, `gemini_*`). Keep Codex Safe on `read-only` + `untrusted` and Codex Power User on active-vault `workspace-write` + `never`, keep Pi and Gemini on transient MCP config, and do not use dangerous permission bypasses unless an ADR explicitly designs a new mode. Gemini Power User intentionally uses Gemini's `yolo` mode per ADR-0103.
+6. **Agent-specific arguments/events**: Edit the per-agent adapter modules (`claude_cli.rs`, `codex_cli.rs`, `opencode_*`, `pi_*`, `gemini_*`). Keep Codex Safe on `read-only` + `untrusted` and Codex Power User on active-vault `workspace-write` + `never`, keep Pi and Gemini on transient MCP config, and do not use dangerous permission bypasses unless an ADR explicitly designs a new mode. Pi's transient agent directory must be seeded from the user's existing Pi agent directory before Tolaria MCP is merged so standalone provider/auth setup keeps working. Gemini Power User intentionally uses Gemini's `yolo` mode per ADR-0103.
 
 ### Work with external MCP setup
 

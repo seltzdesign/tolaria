@@ -2,6 +2,7 @@
 use crate::window_state::MAIN_WINDOW_LABEL;
 use serde::{Deserialize, Deserializer};
 use std::{
+    borrow::Cow,
     collections::{BTreeMap, HashSet},
     error::Error,
     sync::OnceLock,
@@ -9,7 +10,10 @@ use std::{
 #[cfg(not(target_os = "macos"))]
 use tauri::{menu::MenuEvent, Manager};
 use tauri::{
-    menu::{MenuBuilder, MenuItem, MenuItemBuilder, MenuItemKind, Submenu, SubmenuBuilder},
+    menu::{
+        MenuBuilder, MenuItem, MenuItemBuilder, MenuItemKind, Submenu, SubmenuBuilder,
+        WINDOW_SUBMENU_ID,
+    },
     App, AppHandle, Emitter,
 };
 
@@ -242,6 +246,22 @@ fn window_menu_event_handler_required(target_os: &str) -> bool {
     target_os != "macos"
 }
 
+fn native_window_menu_submenu_id(target_os: &str) -> Option<&'static str> {
+    if target_os == "macos" {
+        Some(WINDOW_SUBMENU_ID)
+    } else {
+        None
+    }
+}
+
+fn native_menu_label(label: &str) -> Cow<'_, str> {
+    if label.contains('&') {
+        Cow::Owned(label.replace('&', "&&"))
+    } else {
+        Cow::Borrowed(label)
+    }
+}
+
 fn build_manifest_menu_item(
     app: &App,
     item: &ManifestMenuItem,
@@ -252,8 +272,11 @@ fn build_manifest_menu_item(
     let Some(label) = item.label(std::env::consts::OS) else {
         return Ok(None);
     };
+    let label = native_menu_label(label);
 
-    let mut builder = MenuItemBuilder::new(label).id(id).enabled(item.enabled());
+    let mut builder = MenuItemBuilder::new(label.as_ref())
+        .id(id)
+        .enabled(item.enabled());
     if let Some(accelerator) = item.accelerator(manifest()) {
         builder = builder.accelerator(accelerator);
     }
@@ -355,7 +378,12 @@ fn build_vault_menu(app: &App) -> MenuResult {
 }
 
 fn build_window_menu(app: &App) -> MenuResult {
-    Ok(SubmenuBuilder::new(app, "Window")
+    let mut builder = SubmenuBuilder::new(app, "Window");
+    if let Some(id) = native_window_menu_submenu_id(std::env::consts::OS) {
+        builder = builder.id(id);
+    }
+
+    Ok(builder
         .minimize()
         .maximize()
         .separator()
@@ -581,6 +609,20 @@ mod tests {
     }
 
     #[test]
+    fn view_menu_exposes_ai_panel_toggle() {
+        let view_menu = manifest_section("View").expect("view menu exists");
+        let item = view_menu
+            .items
+            .iter()
+            .find(|item| item.command_id(manifest()) == Some("view-toggle-ai-chat"))
+            .expect("View menu exposes the AI panel toggle");
+
+        assert_eq!(item.menu_item_id(manifest()), Some("view-toggle-ai-chat"));
+        assert_eq!(item.label("macos"), Some("Toggle AI Panel"));
+        assert_eq!(item.accelerator(manifest()), Some("CmdOrCtrl+Shift+L"));
+    }
+
+    #[test]
     fn no_duplicate_custom_ids() {
         let mut seen = HashSet::new();
         for id in manifest_menu_items().filter_map(|item| item.menu_item_id(manifest())) {
@@ -600,5 +642,39 @@ mod tests {
         assert!(!window_menu_event_handler_required("macos"));
         assert!(window_menu_event_handler_required("windows"));
         assert!(window_menu_event_handler_required("linux"));
+    }
+
+    #[test]
+    fn window_menu_uses_native_nsapp_integration_on_macos_only() {
+        assert_eq!(
+            native_window_menu_submenu_id("macos"),
+            Some(WINDOW_SUBMENU_ID)
+        );
+        assert_eq!(native_window_menu_submenu_id("windows"), None);
+        assert_eq!(native_window_menu_submenu_id("linux"), None);
+    }
+
+    #[test]
+    fn native_menu_labels_escape_literal_ampersands() {
+        assert_eq!(native_menu_label("Commit & Push"), "Commit && Push");
+        assert_eq!(
+            native_menu_label("Research && Development"),
+            "Research &&&& Development"
+        );
+    }
+
+    #[test]
+    fn native_menu_labels_without_ampersands_are_unchanged() {
+        assert_eq!(native_menu_label("Pull from Remote"), "Pull from Remote");
+    }
+
+    #[test]
+    fn vault_commit_push_menu_label_is_native_menu_safe() {
+        let item = menu_item_by_id("vault-commit-push");
+        let label = item.label("windows").expect("commit push label exists");
+
+        assert_eq!(label, "Commit & Push");
+        assert_eq!(native_menu_label(label), "Commit && Push");
+        assert_eq!(item.accelerator(manifest()), None);
     }
 }

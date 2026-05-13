@@ -119,6 +119,7 @@ export interface Settings {
   note_width_mode?: NoteWidthMode | null
   sidebar_type_pluralization_enabled?: boolean | null
   initial_h1_auto_rename_enabled?: boolean | null
+  ai_features_enabled?: boolean | null
   default_ai_agent?: AiAgentId | null
   default_ai_target?: string | null
   ai_model_providers?: AiModelProvider[] | null
@@ -229,7 +230,7 @@ export type SidebarSelection =
   | { kind: 'sectionGroup'; type: string }
   | { kind: 'folder'; path: string; rootPath?: string }
   | { kind: 'entity'; entry: VaultEntry }
-  | { kind: 'view'; filename: string }
+  | { kind: 'view'; filename: string; rootPath?: string }
 
 // --- Custom Views ---
 
@@ -259,6 +260,8 @@ export interface ViewDefinition {
 export interface ViewFile {
   filename: string
   definition: ViewDefinition
+  rootPath?: string
+  workspace?: WorkspaceIdentity
 }
 
 /** A node in the vault's folder tree (directories only, no files). */

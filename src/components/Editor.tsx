@@ -34,6 +34,7 @@ import { useRawModeWithFlush } from './useRawModeWithFlush'
 import { createArrowLigaturesExtension } from './arrowLigaturesExtension'
 import { createImeCompositionKeyGuardExtension } from './imeCompositionKeyGuardExtension'
 import { createMathInputExtension } from './mathInputExtension'
+import { createRichEditorTransformErrorRecoveryExtension } from './richEditorTransformErrorRecoveryExtension'
 import { useFilenameAutolinkGuard } from './useFilenameAutolinkGuard'
 import './Editor.css'
 import './EditorTheme.css'
@@ -208,6 +209,7 @@ function useEditorSetup({
     uploadFile: (file: File) => uploadImageFile(file, vaultPathRef.current),
     _tiptapOptions: { injectNonce: RUNTIME_STYLE_NONCE },
     extensions: [
+      createRichEditorTransformErrorRecoveryExtension(),
       createImeCompositionKeyGuardExtension(),
       createArrowLigaturesExtension(),
       createMathInputExtension(),
@@ -629,7 +631,7 @@ export const Editor = memo(function Editor(props: EditorProps) {
       {...buildEditorLayoutProps(props, runtime, findRequest)}
       onToggleInspector={rightPanel.handleToggleInspectorPanel}
       showAIChat={props.showAIChat}
-      onToggleAIChat={rightPanel.handleToggleAIChatPanel}
+      onToggleAIChat={props.onToggleAIChat ? rightPanel.handleToggleAIChatPanel : undefined}
       showTableOfContents={rightPanel.showTableOfContents}
       onToggleTableOfContents={rightPanel.handleToggleTableOfContents}
     />
