@@ -20,6 +20,7 @@ mod task_graph;
 mod title_sync;
 mod trash;
 mod view_date_filters;
+mod view_fields;
 mod view_migration;
 mod view_relationships;
 #[cfg(test)]

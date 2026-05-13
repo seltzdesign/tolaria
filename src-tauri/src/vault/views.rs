@@ -9,11 +9,10 @@ use std::io::ErrorKind;
 use std::path::Path;
 
 use super::view_date_filters::parse_date_filter_timestamp;
+use super::view_fields::{boolean_field_alias, resolve_field, ConditionField};
 use super::view_migration::{is_view_definition_file, migrate_views};
 use super::view_relationships::{evaluate_relationship_op, relationship_candidates};
-use super::view_value_conversions::{
-    json_scalar_to_string, yaml_value_to_string, yaml_value_to_string_vec,
-};
+use super::view_value_conversions::{yaml_value_to_string, yaml_value_to_string_vec};
 use super::VaultEntry;
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
@@ -320,18 +319,13 @@ fn supports_regex(op: &FilterOp) -> bool {
     )
 }
 
-enum ConditionField<'a> {
-    Scalar(Option<String>),
-    Relationship(&'a [String]),
-}
-
 fn evaluate_condition(cond: &FilterCondition, entry: &VaultEntry) -> bool {
     let field = cond.field.as_str();
     if let Some(result) = evaluate_condition_bool_field(field, entry, &cond.op, &cond.value) {
         return result;
     }
 
-    let field_value = resolve_condition_field(field, entry);
+    let field_value = resolve_field(field, entry);
     let cond_value = cond.value.as_ref().and_then(yaml_value_to_string);
     let regex = condition_regex(cond, cond_value.as_deref());
 
@@ -360,31 +354,13 @@ fn evaluate_condition_bool_field(
     op: &FilterOp,
     value: &Option<serde_yaml::Value>,
 ) -> Option<bool> {
-    match field {
-        "archived" => Some(evaluate_bool_field(entry.archived, op, value)),
-        "favorite" => Some(evaluate_bool_field(entry.favorite, op, value)),
-        _ => None,
-    }
-}
-
-fn resolve_condition_field<'a>(field: &str, entry: &'a VaultEntry) -> ConditionField<'a> {
-    match field {
-        "type" | "isA" => ConditionField::Scalar(entry.is_a.clone()),
-        "status" => ConditionField::Scalar(entry.status.clone()),
-        "title" => ConditionField::Scalar(Some(entry.title.clone())),
-        "body" => ConditionField::Scalar(Some(entry.snippet.clone())),
-        _ => resolve_dynamic_condition_field(field, entry),
-    }
-}
-
-fn resolve_dynamic_condition_field<'a>(field: &str, entry: &'a VaultEntry) -> ConditionField<'a> {
-    if let Some(prop) = entry.properties.get(field) {
-        return ConditionField::Scalar(json_scalar_to_string(prop));
-    }
-    if let Some(relationships) = entry.relationships.get(field) {
-        return ConditionField::Relationship(relationships);
-    }
-    ConditionField::Scalar(None)
+    let alias = boolean_field_alias(field)?;
+    let field_value = match alias {
+        "archived" => entry.archived,
+        "favorite" => entry.favorite,
+        _ => return None,
+    };
+    Some(evaluate_bool_field(field_value, op, value))
 }
 
 fn condition_regex(cond: &FilterCondition, cond_value: Option<&str>) -> Option<Regex> {
