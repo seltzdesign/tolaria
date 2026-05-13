@@ -979,7 +979,8 @@ describe('Sidebar', () => {
     const topNav = screen.getByTestId('sidebar-top-nav')
     const items = topNav.children
     expect(items[0].textContent).toContain('Inbox')
-    expect(items[1].textContent).toContain('All Notes')
+    expect(items[1].textContent).toContain('Tasks')
+    expect(items[2].textContent).toContain('All Notes')
   })
 
   it('displays inbox count badge', () => {
@@ -994,11 +995,19 @@ describe('Sidebar', () => {
     expect(onSelect).toHaveBeenCalledWith({ kind: 'filter', filter: 'inbox' })
   })
 
+  it('calls onSelect with tasks filter when clicking Tasks', () => {
+    const onSelect = vi.fn()
+    render(<Sidebar entries={[]} selection={defaultSelection} onSelect={onSelect} />)
+    fireEvent.click(screen.getByText('Tasks'))
+    expect(onSelect).toHaveBeenCalledWith({ kind: 'filter', filter: 'tasks' })
+  })
+
   it('hides Inbox when explicit organization is disabled', () => {
     render(<Sidebar entries={[]} selection={defaultSelection} onSelect={() => {}} showInbox={false} inboxCount={3} />)
     expect(screen.queryByText('Inbox')).not.toBeInTheDocument()
     const topNav = screen.getByTestId('sidebar-top-nav')
-    expect(topNav.children[0].textContent).toContain('All Notes')
+    expect(topNav.children[0].textContent).toContain('Tasks')
+    expect(topNav.children[1].textContent).toContain('All Notes')
   })
 
   it('excludes attachments-folder markdown from top-nav note totals', () => {
@@ -1079,8 +1088,9 @@ describe('Sidebar', () => {
     render(<Sidebar entries={entries} selection={defaultSelection} onSelect={() => {}} />)
 
     const topNav = screen.getByTestId('sidebar-top-nav')
-    expect(topNav.children[1].textContent).toContain('All Notes1')
-    expect(topNav.children[2].textContent).toContain('Archive1')
+    // [0] Inbox, [1] Tasks, [2] All Notes, [3] Archive — no tasks in this fixture so Tasks shows 0
+    expect(topNav.children[2].textContent).toContain('All Notes1')
+    expect(topNav.children[3].textContent).toContain('Archive1')
   })
 
   it('does not show inline entries — no child items in type sections', () => {

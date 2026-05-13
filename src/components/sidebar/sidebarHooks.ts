@@ -6,7 +6,7 @@ import {
 import type { VaultEntry } from '../../types'
 import { APP_STORAGE_KEYS, LEGACY_APP_STORAGE_KEYS, getAppStorageItem } from '../../constants/appStorage'
 import { buildTypeEntryMap } from '../../utils/typeColors'
-import { countAllNotesByFilter } from '../../utils/noteListHelpers'
+import { countAllNotesByFilter, isOpenTask } from '../../utils/noteListHelpers'
 import { buildDynamicSections, sortSections } from '../../utils/sidebarSections'
 import type { AllNotesFileVisibility } from '../../utils/allNotesFileVisibility'
 
@@ -203,7 +203,8 @@ export function useEntryCounts(
 ) {
   return useMemo(() => {
     const counts = countAllNotesByFilter(entries, allNotesFileVisibility)
-    return { activeCount: counts.open, archivedCount: counts.archived }
+    const openTaskCount = entries.reduce((sum, entry) => sum + (isOpenTask(entry) ? 1 : 0), 0)
+    return { activeCount: counts.open, archivedCount: counts.archived, openTaskCount }
   }, [allNotesFileVisibility, entries])
 }
 

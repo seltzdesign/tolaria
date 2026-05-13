@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { buildRelationshipGroups, countAllByFilter, countAllNotesByFilter, countByFilter, filterEntries } from './noteListHelpers'
+import {
+  buildRelationshipGroups,
+  countAllByFilter,
+  countAllNotesByFilter,
+  countByFilter,
+  filterEntries,
+  isOpenTask,
+} from './noteListHelpers'
 import { allSelection, makeEntry, mockEntries } from '../test-utils/noteListTestUtils'
 
 describe('filterEntries', () => {
@@ -412,5 +419,47 @@ describe('buildRelationshipGroups', () => {
     const groups = buildRelationshipGroups(parent, [parent, archiveAlpha, unrelatedChild, unrelatedEvent])
 
     expect(groups).toEqual([])
+  })
+})
+
+describe('isOpenTask', () => {
+  it('returns true for an active task with no terminal status', () => {
+    const entry = makeEntry({ path: '/a.md', title: 'A', isA: 'task', status: 'In progress' })
+    expect(isOpenTask(entry)).toBe(true)
+  })
+
+  it('returns true for an active task with no status at all', () => {
+    const entry = makeEntry({ path: '/a.md', title: 'A', isA: 'task' })
+    expect(isOpenTask(entry)).toBe(true)
+  })
+
+  it('returns false for non-task entries', () => {
+    const entry = makeEntry({ path: '/a.md', title: 'A', isA: 'Note' })
+    expect(isOpenTask(entry)).toBe(false)
+  })
+
+  it('returns false for archived tasks', () => {
+    const entry = makeEntry({ path: '/a.md', title: 'A', isA: 'task', archived: true })
+    expect(isOpenTask(entry)).toBe(false)
+  })
+
+  it('returns false for tasks with status Done (case-insensitive)', () => {
+    expect(isOpenTask(makeEntry({ path: '/a.md', title: 'A', isA: 'task', status: 'Done' }))).toBe(false)
+    expect(isOpenTask(makeEntry({ path: '/b.md', title: 'B', isA: 'task', status: 'done' }))).toBe(false)
+    expect(isOpenTask(makeEntry({ path: '/c.md', title: 'C', isA: 'task', status: 'DONE' }))).toBe(false)
+  })
+})
+
+describe('filterEntries — tasks filter', () => {
+  it('returns only open tasks', () => {
+    const entries = [
+      makeEntry({ path: '/a.md', title: 'A', isA: 'task', status: 'In progress' }),
+      makeEntry({ path: '/b.md', title: 'B', isA: 'task', status: 'Done' }),
+      makeEntry({ path: '/c.md', title: 'C', isA: 'task', archived: true }),
+      makeEntry({ path: '/d.md', title: 'D', isA: 'Note' }),
+      makeEntry({ path: '/e.md', title: 'E', isA: 'task' }),
+    ]
+    const result = filterEntries(entries, { kind: 'filter', filter: 'tasks' })
+    expect(result.map((entry) => entry.title)).toEqual(['A', 'E'])
   })
 })

@@ -441,6 +441,12 @@ export function buildRelationshipGroups(
 
 const isActive = (e: VaultEntry) => !e.archived
 const isMarkdown = (e: VaultEntry) => e.fileKind === 'markdown' || !e.fileKind
+
+export function isOpenTask(entry: VaultEntry): boolean {
+  if (entry.isA !== 'task') return false
+  if (entry.archived) return false
+  return (entry.status ?? '').toLowerCase() !== 'done'
+}
 const ATTACHMENTS_FOLDER = 'attachments'
 
 function applySubFilter(entries: VaultEntry[], subFilter: NoteListFilter): VaultEntry[] {
@@ -551,6 +557,7 @@ function filterByFilterType(entries: VaultEntry[], filter: string): VaultEntry[]
   if (filter === 'all') return entries.filter(isActive)
   if (filter === 'archived') return entries.filter((e) => e.archived)
   if (filter === 'favorites') return entries.filter((e) => e.favorite && !e.archived)
+  if (filter === 'tasks') return entries.filter(isOpenTask)
   if (filter === 'pulse') return []
   return []
 }

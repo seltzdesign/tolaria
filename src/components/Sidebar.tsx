@@ -106,6 +106,7 @@ interface SidebarNavigationProps extends Pick<
 > {
   activeCount: number
   archivedCount: number
+  openTaskCount: number
   groupCollapsed: ReturnType<typeof useSidebarCollapsed>['collapsed']
   toggleGroup: ReturnType<typeof useSidebarCollapsed>['toggle']
   visibleSections: ReturnType<typeof useSidebarSections>['visibleSections']
@@ -377,6 +378,7 @@ function SidebarTopNavigation(props: SidebarNavigationProps) {
         inboxCount={props.inboxCount ?? 0}
         activeCount={props.activeCount}
         archivedCount={props.archivedCount}
+        openTaskCount={props.openTaskCount}
         locale={props.locale ?? 'en'}
         loading={props.loading ?? false}
       />
@@ -490,7 +492,7 @@ function useSidebarRuntime({
   locale = 'en',
 }: SidebarProps) {
   const { typeEntryMap, allSectionGroups, visibleSections, sectionIds } = useSidebarSections(entries, pluralizeTypeLabels)
-  const { activeCount, archivedCount } = useEntryCounts(entries, allNotesFileVisibility)
+  const { activeCount, archivedCount, openTaskCount } = useEntryCounts(entries, allNotesFileVisibility)
   const { collapsed: groupCollapsed, toggle: toggleGroup } = useSidebarCollapsed()
   const typeInteractions = useSidebarTypeInteractions({
     allSectionGroups,
@@ -538,6 +540,7 @@ function useSidebarRuntime({
     activeCount,
     allSectionGroups,
     archivedCount,
+    openTaskCount,
     groupCollapsed,
     handleDragEnd,
     isSectionVisible,
@@ -588,6 +591,7 @@ function SidebarRuntimeNavigation({
       onCreateNewType={props.onCreateNewType}
       activeCount={runtime.activeCount}
       archivedCount={runtime.archivedCount}
+      openTaskCount={runtime.openTaskCount}
       groupCollapsed={runtime.groupCollapsed}
       toggleGroup={runtime.toggleGroup}
       visibleSections={runtime.visibleSections}

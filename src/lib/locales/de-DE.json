@@ -699,5 +699,6 @@
   "tasks.timeline.emptyView": "No items in this view.",
   "tasks.timeline.unsetLane": "(unset)",
   "tasks.timeline.noDatesFooter": "{count} task without dates",
-  "tasks.timeline.today": ""
+  "tasks.timeline.today": "",
+  "sidebar.nav.tasks": "Tasks"
 }
