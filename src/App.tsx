@@ -12,6 +12,7 @@ import { Toast } from './components/Toast'
 import { CommitDialog } from './components/CommitDialog'
 import { PulseView } from './components/PulseView'
 import { TaskBoard } from './components/tasks/TaskBoard'
+import { TaskTable } from './components/tasks/TaskTable'
 import { StatusBar } from './components/StatusBar'
 import { SettingsPanel } from './components/SettingsPanel'
 import { CloneVaultModal } from './components/CloneVaultModal'
@@ -1624,16 +1625,20 @@ function App() {
     return { type: null, query: '' }
   }, [effectiveSelection])
 
-  const selectedBoardView = useMemo(() => {
+  const selectedCanvasView = useMemo(() => {
     if (effectiveSelection.kind !== 'view') return null
     const view = vault.views.find((candidate) => viewMatchesSelection(candidate, effectiveSelection))
-    return view && view.definition.display === 'board' ? view : null
+    if (!view) return null
+    const display = view.definition.display
+    if (display === 'board') return { kind: 'board' as const, view }
+    if (display === 'table') return { kind: 'table' as const, view }
+    return null
   }, [effectiveSelection, vault.views])
 
-  const boardFilteredEntries = useMemo(() => {
-    if (!selectedBoardView) return []
-    return filterEntriesForViewFile(visibleEntries, selectedBoardView)
-  }, [selectedBoardView, visibleEntries])
+  const canvasFilteredEntries = useMemo(() => {
+    if (!selectedCanvasView) return []
+    return filterEntriesForViewFile(visibleEntries, selectedCanvasView.view)
+  }, [selectedCanvasView, visibleEntries])
 
   const {
     isStartupLoading,
@@ -1689,10 +1694,14 @@ function App() {
               <ResizeHandle onResize={layout.handleSidebarResize} />
             </>
           )}
-          {selectedBoardView ? (
+          {selectedCanvasView ? (
             <>
-              <div className="app__board">
-                <TaskBoard view={selectedBoardView} filteredEntries={boardFilteredEntries} allEntries={visibleEntries} selectedEntryPath={activeTab?.entry?.path ?? null} onSelectNote={notes.handleSelectNote} onUpdateFrontmatter={notes.handleUpdateFrontmatter} locale={appLocale} />
+              <div className="app__view-canvas">
+                {selectedCanvasView.kind === 'board' ? (
+                  <TaskBoard view={selectedCanvasView.view} filteredEntries={canvasFilteredEntries} allEntries={visibleEntries} selectedEntryPath={activeTab?.entry?.path ?? null} onSelectNote={notes.handleSelectNote} onUpdateFrontmatter={notes.handleUpdateFrontmatter} locale={appLocale} />
+                ) : (
+                  <TaskTable view={selectedCanvasView.view} filteredEntries={canvasFilteredEntries} selectedEntryPath={activeTab?.entry?.path ?? null} onSelectNote={notes.handleSelectNote} onUpdateViewDefinition={handleUpdateViewDefinition} locale={appLocale} />
+                )}
               </div>
               <ResizeHandle onResize={layout.handleNoteListResize} />
             </>

@@ -1,0 +1,20 @@
+name: Q2 Launch Table
+icon: table
+color: green
+sort: "property:priority:asc"
+display: table
+columns:
+  - title
+  - status
+  - priority
+  - due
+  - assignees
+  - file.mtime
+filters:
+  all:
+    - field: type
+      op: equals
+      value: task
+    - field: project
+      op: contains
+      value: "Q2 Launch"

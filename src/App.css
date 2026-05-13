@@ -60,7 +60,7 @@
   flex: 1;
 }
 
-.app__board {
+.app__view-canvas {
   flex: 1;
   min-width: 0;
   min-height: 0;
@@ -71,11 +71,11 @@
   border-left: 1px solid var(--sidebar-border);
 }
 
-.app__board > * {
+.app__view-canvas > * {
   flex: 1;
 }
 
-.app:has(.app__board) .app__editor {
+.app:has(.app__view-canvas) .app__editor {
   flex: 0 0 auto;
   width: 420px;
   min-width: 320px;
