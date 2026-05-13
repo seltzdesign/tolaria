@@ -573,6 +573,121 @@ filters:
     }
 
     #[test]
+    fn test_file_mtime_after_relative_date() {
+        let yaml = r#"name: Recently Edited
+filters:
+  all:
+    - field: file.mtime
+      op: after
+      value: 1 week ago
+"#;
+        let def: ViewDefinition = serde_yaml::from_str(yaml).unwrap();
+
+        // 2 hours ago in epoch millis
+        let recent = (chrono::Utc::now().timestamp_millis() - 2 * 60 * 60 * 1000) as u64;
+        // 30 days ago in epoch millis
+        let stale = (chrono::Utc::now().timestamp_millis() - 30 * 24 * 60 * 60 * 1000) as u64;
+
+        let recent_entry = make_entry(|e| e.modified_at = Some(recent));
+        let stale_entry = make_entry(|e| e.modified_at = Some(stale));
+
+        let entries = vec![recent_entry, stale_entry];
+        let result = evaluate_view(&def, &entries);
+        assert_eq!(result, vec![0]);
+    }
+
+    #[test]
+    fn test_file_folder_equals() {
+        let yaml = r#"name: Active Projects Folder
+filters:
+  all:
+    - field: file.folder
+      op: equals
+      value: /vault/Projects/Active
+"#;
+        let def: ViewDefinition = serde_yaml::from_str(yaml).unwrap();
+
+        let in_folder = make_entry(|e| {
+            e.path = "/vault/Projects/Active/launch.md".to_string();
+            e.filename = "launch.md".to_string();
+        });
+        let other_folder = make_entry(|e| {
+            e.path = "/vault/Archive/old.md".to_string();
+            e.filename = "old.md".to_string();
+        });
+
+        let entries = vec![in_folder, other_folder];
+        let result = evaluate_view(&def, &entries);
+        assert_eq!(result, vec![0]);
+    }
+
+    #[test]
+    fn test_file_tags_contains_wikilink() {
+        let yaml = r#"name: Urgent
+filters:
+  all:
+    - field: file.tags
+      op: contains
+      value: "[[urgent]]"
+"#;
+        let def: ViewDefinition = serde_yaml::from_str(yaml).unwrap();
+
+        let tagged = make_entry(|e| {
+            e.belongs_to = vec!["[[urgent]]".to_string(), "[[other]]".to_string()];
+        });
+        let untagged = make_entry(|e| {
+            e.belongs_to = vec!["[[other]]".to_string()];
+        });
+
+        let entries = vec![tagged, untagged];
+        let result = evaluate_view(&def, &entries);
+        assert_eq!(result, vec![0]);
+    }
+
+    #[test]
+    fn test_namespaced_note_status_matches_bare_status() {
+        let bare_yaml = r#"name: Done
+filters:
+  all:
+    - field: status
+      op: equals
+      value: Done
+"#;
+        let ns_yaml = r#"name: Done NS
+filters:
+  all:
+    - field: note.status
+      op: equals
+      value: Done
+"#;
+        let bare: ViewDefinition = serde_yaml::from_str(bare_yaml).unwrap();
+        let ns: ViewDefinition = serde_yaml::from_str(ns_yaml).unwrap();
+
+        let done = make_entry(|e| e.status = Some("Done".to_string()));
+        let open = make_entry(|e| e.status = Some("Open".to_string()));
+        let entries = vec![done, open];
+
+        assert_eq!(evaluate_view(&bare, &entries), vec![0]);
+        assert_eq!(evaluate_view(&ns, &entries), vec![0]);
+    }
+
+    #[test]
+    fn test_formula_field_resolves_to_empty() {
+        let yaml = r#"name: Formula
+filters:
+  all:
+    - field: formula.derived
+      op: is_not_empty
+"#;
+        let def: ViewDefinition = serde_yaml::from_str(yaml).unwrap();
+
+        let any_entry = make_entry(|_| {});
+        let entries = vec![any_entry];
+        let result = evaluate_view(&def, &entries);
+        assert!(result.is_empty());
+    }
+
+    #[test]
     fn test_body_is_empty() {
         let yaml = r#"
 name: Empty Body
