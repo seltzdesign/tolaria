@@ -902,6 +902,8 @@ Managed by `useSettings` hook and `SettingsPanel` component. `theme_mode` is ins
 ### Rust
 - **`src-tauri/src/app_updater.rs`** — Chooses the correct update endpoint and adapts Tauri updater results into frontend-friendly payloads. Stable uses the public `stable/latest.json` feed. Alpha first resolves the newest non-draft `alpha-vYYYY.M.D-alpha.NNNN` GitHub Release asset named `alpha-latest.json`, then falls back to the public `alpha/latest.json` feed if the release lookup is unavailable.
 - **`src-tauri/src/commands/version.rs`** — Formats app build/version labels for the status bar, including calendar alpha labels and legacy release compatibility.
+- **`src-tauri/src/vault/views.rs`** — `ViewDefinition` carries the on-disk view schema. Optional fields `display` (`ViewDisplay` enum), `groupBy` (`GroupBy`), and `columns` (string list) are skip-serialized when unset so existing view files round-trip byte-stable. `scan_views` flattens multi-view files into one `ViewFile` per definition with a synthetic `{base}#{index}` filename; `ViewFile.shape` is `Single` or `Multi`. `split_view_filename` is the inverse helper for callers that need to address back to the on-disk file.
+- **`src-tauri/src/vault/view_fields.rs`** — Field-namespace resolver: `note.<name>` (frontmatter or structural alias), `file.<name>` (locked v1: name/path/folder/ext/size/ctime/mtime/tags), `formula.<name>` (reserved, resolves to empty with one-shot debug log). Bare names default to `note.<name>` for back-compat. `boolean_field_alias` normalizes both forms for the archived/favorite path.
 
 ### Tauri Commands
 - **`check_for_app_update`** — Channel-aware update manifest lookup.
