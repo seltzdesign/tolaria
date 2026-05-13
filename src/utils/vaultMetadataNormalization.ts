@@ -97,6 +97,8 @@ function normalizeRelationships(value: unknown): Record<string, string[]> {
   return result
 }
 
+const KNOWN_LIST_PROPERTIES = new Set(['labels', 'statuses', 'terminal_statuses'])
+
 function normalizeProperties(value: unknown): VaultEntry['properties'] {
   const source = recordFrom(value)
   const result: VaultEntry['properties'] = {}
@@ -106,6 +108,14 @@ function normalizeProperties(value: unknown): VaultEntry['properties'] {
       || typeof rawValue === 'string'
       || typeof rawValue === 'boolean'
       || (typeof rawValue === 'number' && Number.isFinite(rawValue))
+    ) {
+      Reflect.set(result, key, rawValue)
+      continue
+    }
+    if (
+      KNOWN_LIST_PROPERTIES.has(key)
+      && Array.isArray(rawValue)
+      && rawValue.every((item) => typeof item === 'string')
     ) {
       Reflect.set(result, key, rawValue)
     }

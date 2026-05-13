@@ -53,8 +53,10 @@ export interface VaultEntry {
   listPropertiesDisplay: string[]
   /** All wikilink targets found in the note content. Extracted from [[target]] patterns. */
   outgoingLinks: string[]
-  /** Custom scalar frontmatter properties (non-relationship, non-structural). */
-  properties: Record<string, string | number | boolean | null>
+  /** Custom frontmatter properties (non-relationship, non-structural). Scalars
+   *  for arbitrary keys, plus string arrays for allowlisted task/project list
+   *  fields (`labels`, `statuses`, `terminal_statuses`) per ADR 0115. */
+  properties: Record<string, string | number | boolean | string[] | null>
   /** Whether the note body has an H1 heading on the first non-empty line. */
   hasH1: boolean
   /** File kind: "markdown", "text", or "binary". Determines editor behavior.

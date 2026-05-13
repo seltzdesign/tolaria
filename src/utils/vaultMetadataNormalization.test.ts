@@ -21,6 +21,30 @@ describe('normalizeVaultEntries', () => {
     })
   })
 
+  it('keeps allowlisted string arrays in properties (labels, statuses, terminal_statuses)', () => {
+    const entries = normalizeVaultEntries([
+      {
+        path: '/vault/task.md',
+        filename: 'task.md',
+        title: 'Task',
+        properties: {
+          priority: 'P1',
+          labels: ['bug', 'frontend'],
+          statuses: ['Open', 'Done'],
+          terminal_statuses: ['Done', 'Cancelled'],
+          tags: ['foo', 'bar'],
+        },
+      },
+    ], '/vault')
+
+    expect(entries[0].properties).toEqual({
+      priority: 'P1',
+      labels: ['bug', 'frontend'],
+      statuses: ['Open', 'Done'],
+      terminal_statuses: ['Done', 'Cancelled'],
+    })
+  })
+
   it('drops malformed reload entries that do not include a usable path', () => {
     const entries = normalizeVaultEntries([
       { path: '/vault/valid.md', filename: 'valid.md', title: 'Valid' },
