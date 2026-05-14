@@ -47,6 +47,7 @@ import { shouldHideGitignoredFiles } from '../lib/gitignoredVisibility'
 import { areAiFeaturesEnabled } from '../lib/aiFeatures'
 import { trackAllNotesVisibilityChanged } from '../lib/productAnalytics'
 import { AiProviderSettings } from './AiProviderSettings'
+import { GitHubProjectsSettingsSection } from './GitHubProjectsSettingsSection'
 import { PrivacySettingsSection } from './PrivacySettingsSection'
 import { SettingsBodyNav } from './SettingsBodyNav'
 import {
@@ -126,6 +127,8 @@ interface SettingsDraft {
   crashReporting: boolean
   analytics: boolean
   explicitOrganization: boolean
+  githubProjectsEnabled: boolean
+  githubDefaultSyncIntervalMinutes: number
 }
 
 interface SettingsBodyProps {
@@ -184,11 +187,16 @@ interface SettingsBodyProps {
   setCrashReporting: (value: boolean) => void
   analytics: boolean
   setAnalytics: (value: boolean) => void
+  githubProjectsEnabled: boolean
+  setGithubProjectsEnabled: (value: boolean) => void
+  githubDefaultSyncIntervalMinutes: number
+  setGithubDefaultSyncIntervalMinutes: (value: number) => void
 }
 
 const PULL_INTERVAL_OPTIONS = [1, 2, 5, 10, 15, 30] as const
 const DEFAULT_AUTOGIT_IDLE_THRESHOLD_SECONDS = 90
 const DEFAULT_AUTOGIT_INACTIVE_THRESHOLD_SECONDS = 30
+const DEFAULT_GITHUB_SYNC_INTERVAL_MINUTES = 5
 type Translate = ReturnType<typeof createTranslator>
 
 function isSaveShortcut(event: ReactKeyboardEvent): boolean {
@@ -228,6 +236,11 @@ function createSettingsDraft(
     crashReporting: settings.crash_reporting_enabled ?? false,
     analytics: settings.analytics_enabled ?? false,
     explicitOrganization: explicitOrganizationEnabled,
+    githubProjectsEnabled: settings.github_projects_enabled ?? false,
+    githubDefaultSyncIntervalMinutes: sanitizePositiveInteger(
+      settings.github_default_sync_interval_minutes,
+      DEFAULT_GITHUB_SYNC_INTERVAL_MINUTES,
+    ),
   }
 }
 
@@ -274,6 +287,8 @@ function buildSettingsFromDraft(settings: Settings, draft: SettingsDraft): Setti
     ai_model_providers: draft.aiModelProviders.length > 0 ? draft.aiModelProviders : null,
     hide_gitignored_files: draft.hideGitignoredFiles,
     multi_workspace_enabled: draft.multiWorkspaceEnabled,
+    github_projects_enabled: draft.githubProjectsEnabled,
+    github_default_sync_interval_minutes: draft.githubDefaultSyncIntervalMinutes,
   }
   return settingsWithAllNotesFileVisibility(nextSettings, draft.allNotesFileVisibility)
 }
@@ -582,6 +597,10 @@ function SettingsBodyFromDraft({
       setCrashReporting={(value) => updateDraft('crashReporting', value)}
       analytics={draft.analytics}
       setAnalytics={(value) => updateDraft('analytics', value)}
+      githubProjectsEnabled={draft.githubProjectsEnabled}
+      setGithubProjectsEnabled={(value) => updateDraft('githubProjectsEnabled', value)}
+      githubDefaultSyncIntervalMinutes={draft.githubDefaultSyncIntervalMinutes}
+      setGithubDefaultSyncIntervalMinutes={(value) => updateDraft('githubDefaultSyncIntervalMinutes', value)}
     />
   )
 }
@@ -740,6 +759,10 @@ function SettingsAgentWorkflowSections({
   setCrashReporting,
   analytics,
   setAnalytics,
+  githubProjectsEnabled,
+  setGithubProjectsEnabled,
+  githubDefaultSyncIntervalMinutes,
+  setGithubDefaultSyncIntervalMinutes,
 }: SettingsBodyProps) {
   return (
     <>
@@ -766,6 +789,16 @@ function SettingsAgentWorkflowSections({
           onChange={setExplicitOrganization}
           autoAdvanceInboxAfterOrganize={autoAdvanceInboxAfterOrganize}
           onChangeAutoAdvanceInboxAfterOrganize={setAutoAdvanceInboxAfterOrganize}
+        />
+      </SettingsSection>
+
+      <SettingsSection id={SETTINGS_SECTION_IDS.githubProjects}>
+        <GitHubProjectsSettingsSection
+          t={t}
+          enabled={githubProjectsEnabled}
+          setEnabled={setGithubProjectsEnabled}
+          syncIntervalMinutes={githubDefaultSyncIntervalMinutes}
+          setSyncIntervalMinutes={setGithubDefaultSyncIntervalMinutes}
         />
       </SettingsSection>
 

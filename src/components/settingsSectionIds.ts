@@ -6,5 +6,6 @@ export const SETTINGS_SECTION_IDS = {
   content: 'settings-section-content',
   ai: 'settings-section-ai',
   workflow: 'settings-section-workflow',
+  githubProjects: 'settings-section-github-projects',
   privacy: 'settings-section-privacy',
 } as const

@@ -128,6 +128,8 @@ export interface Settings {
   all_notes_show_images?: boolean | null
   all_notes_show_unsupported?: boolean | null
   multi_workspace_enabled?: boolean | null
+  github_projects_enabled?: boolean | null
+  github_default_sync_interval_minutes?: number | null
 }
 
 export interface GitPullResult {

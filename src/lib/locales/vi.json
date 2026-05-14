@@ -709,5 +709,20 @@
   "tasks.canvas.projectLabel": "Project",
   "tasks.canvas.allProjects": "All projects",
   "tasks.canvas.noProjects": "No projects in this vault",
-  "tasks.cell.none": "None"
+  "tasks.cell.none": "None",
+  "settings.githubProjects.title": "GitHub Projects",
+  "settings.githubProjects.enabled": "Enable GitHub Projects sync",
+  "settings.githubProjects.enabledDescription": "Two-way sync between task notes in this vault and GitHub Projects v2.",
+  "settings.githubProjects.syncInterval": "Default sync interval (minutes)",
+  "settings.githubProjects.syncIntervalDescription": "How often each bound project polls GitHub when sync is on.",
+  "settings.githubProjects.pat": "Personal access token",
+  "settings.githubProjects.patDescription": "Paste a fine-grained PAT with read/write access to the projects you want to sync. Stored in your OS keychain only.",
+  "settings.githubProjects.patDescriptionStored": "A token is stored in your OS keychain. Paste a new one to replace it.",
+  "settings.githubProjects.savePat": "Save token",
+  "settings.githubProjects.replacePat": "Replace token",
+  "settings.githubProjects.clearPat": "Clear",
+  "settings.githubProjects.testConnection": "Test connection",
+  "settings.githubProjects.testConnectionDescription": "Calls GitHub once to confirm the stored token works.",
+  "settings.githubProjects.testing": "Testing…",
+  "settings.githubProjects.connectedAs": "Connected as"
 }

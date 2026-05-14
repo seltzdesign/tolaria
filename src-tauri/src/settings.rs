@@ -91,6 +91,8 @@ pub struct Settings {
     pub all_notes_show_images: Option<bool>,
     pub all_notes_show_unsupported: Option<bool>,
     pub multi_workspace_enabled: Option<bool>,
+    pub github_projects_enabled: Option<bool>,
+    pub github_default_sync_interval_minutes: Option<u32>,
 }
 
 fn normalize_optional_string(value: Option<String>) -> Option<String> {
@@ -205,6 +207,10 @@ fn normalize_settings(settings: Settings) -> Settings {
         all_notes_show_images: settings.all_notes_show_images,
         all_notes_show_unsupported: settings.all_notes_show_unsupported,
         multi_workspace_enabled: settings.multi_workspace_enabled,
+        github_projects_enabled: settings.github_projects_enabled,
+        github_default_sync_interval_minutes: normalize_optional_positive_u32(
+            settings.github_default_sync_interval_minutes,
+        ),
     }
 }
 
@@ -358,6 +364,8 @@ mod tests {
             all_notes_show_pdfs: Some(true),
             all_notes_show_images: Some(true),
             all_notes_show_unsupported: Some(false),
+            github_projects_enabled: Some(true),
+            github_default_sync_interval_minutes: Some(5),
         };
         let json = serde_json::to_string(&settings).unwrap();
         let parsed: Settings = serde_json::from_str(&json).unwrap();
@@ -394,6 +402,8 @@ mod tests {
             all_notes_show_pdfs: Some(true),
             all_notes_show_images: Some(false),
             all_notes_show_unsupported: Some(true),
+            github_projects_enabled: Some(true),
+            github_default_sync_interval_minutes: Some(7),
             ..Default::default()
         });
         assert_eq!(loaded.auto_pull_interval_minutes, Some(10));
@@ -415,6 +425,8 @@ mod tests {
         assert_eq!(loaded.all_notes_show_pdfs, Some(true));
         assert_eq!(loaded.all_notes_show_images, Some(false));
         assert_eq!(loaded.all_notes_show_unsupported, Some(true));
+        assert_eq!(loaded.github_projects_enabled, Some(true));
+        assert_eq!(loaded.github_default_sync_interval_minutes, Some(7));
     }
 
     #[test]

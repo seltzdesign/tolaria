@@ -11,6 +11,7 @@ pub mod gemini_cli;
 mod gemini_config;
 mod gemini_discovery;
 pub mod git;
+pub mod github;
 #[cfg(any(test, all(desktop, target_os = "linux")))]
 mod linux_appimage;
 pub mod mcp;
@@ -514,6 +515,10 @@ macro_rules! app_invoke_handler {
             commands::delete_view_cmd,
             commands::create_task,
             commands::create_project,
+            commands::github_set_pat,
+            commands::github_clear_pat,
+            commands::github_pat_present,
+            commands::github_test_connection,
             vault_watcher::start_vault_watcher,
             vault_watcher::stop_vault_watcher
         ]

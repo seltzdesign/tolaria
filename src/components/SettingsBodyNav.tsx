@@ -1,4 +1,4 @@
-import { Bot, Folder, GitBranch, ListChecks, Palette, RefreshCw, ShieldCheck } from 'lucide-react'
+import { Bot, Folder, GitBranch, Github, ListChecks, Palette, RefreshCw, ShieldCheck } from 'lucide-react'
 import type { TranslationKey } from '../lib/i18n'
 import { Button } from './ui/button'
 import { SETTINGS_SECTION_IDS } from './settingsSectionIds'
@@ -16,6 +16,7 @@ export function SettingsBodyNav({ t }: SettingsBodyNavProps) {
     { id: SETTINGS_SECTION_IDS.content, label: t('settings.vaultContent.title'), Icon: Folder },
     { id: SETTINGS_SECTION_IDS.ai, label: t('settings.aiAgents.title'), Icon: Bot },
     { id: SETTINGS_SECTION_IDS.workflow, label: t('settings.workflow.title'), Icon: ListChecks },
+    { id: SETTINGS_SECTION_IDS.githubProjects, label: t('settings.githubProjects.title'), Icon: Github },
     { id: SETTINGS_SECTION_IDS.privacy, label: t('settings.privacy.title'), Icon: ShieldCheck },
   ]
 
