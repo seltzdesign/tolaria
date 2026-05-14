@@ -6,18 +6,21 @@ export const COLUMN_MIN_WIDTHS = {
   noteList: 220,
   editor: 800,
   inspector: 240,
+  editorDetail: 320,
 } as const
 
 const COLUMN_MAX_WIDTHS = {
   sidebar: 400,
   noteList: 500,
   inspector: 500,
+  editorDetail: 720,
 } as const
 
 const DEFAULT_PANEL_WIDTHS = {
   sidebar: 250,
   noteList: 300,
   inspector: 280,
+  editorDetail: 420,
 } as const
 
 type PanelWidthKey = keyof typeof DEFAULT_PANEL_WIDTHS
@@ -50,6 +53,7 @@ function normalizePanelWidths(value: unknown): PanelWidths {
     sidebar: readPanelWidth(value, 'sidebar'),
     noteList: readPanelWidth(value, 'noteList'),
     inspector: readPanelWidth(value, 'inspector'),
+    editorDetail: readPanelWidth(value, 'editorDetail'),
   }
 }
 
@@ -93,15 +97,18 @@ export function useLayoutPanels(options?: { initialInspectorCollapsed?: boolean 
   const handleSidebarResize = useCallback((delta: number) => resizePanel('sidebar', delta), [resizePanel])
   const handleNoteListResize = useCallback((delta: number) => resizePanel('noteList', delta), [resizePanel])
   const handleInspectorResize = useCallback((delta: number) => resizePanel('inspector', -delta), [resizePanel])
+  const handleEditorDetailResize = useCallback((delta: number) => resizePanel('editorDetail', -delta), [resizePanel])
 
   return {
     sidebarWidth: panelWidths.sidebar,
     noteListWidth: panelWidths.noteList,
     inspectorWidth: panelWidths.inspector,
+    editorDetailWidth: panelWidths.editorDetail,
     inspectorCollapsed,
     setInspectorCollapsed,
     handleSidebarResize,
     handleNoteListResize,
     handleInspectorResize,
+    handleEditorDetailResize,
   }
 }

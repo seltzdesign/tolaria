@@ -4,8 +4,8 @@ import { asTask } from './taskView'
 import { normalizeBoardField } from './boardColumns'
 
 const MS_PER_DAY = 86_400_000
-const DEFAULT_FALLBACK_DAYS_BEFORE = 7
-const DEFAULT_FALLBACK_DAYS_AFTER = 30
+const MIN_DAYS_BEFORE_TODAY = 365
+const MIN_DAYS_AFTER_TODAY = 365
 const PADDING_DAYS = 3
 
 export interface DateRange {
@@ -62,26 +62,19 @@ function startOfDayUtc(ms: number): number {
 }
 
 export function dateRangeFor(entries: VaultEntry[], today: Date): DateRange {
-  let min: number | null = null
-  let max: number | null = null
+  const todayUtc = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate())
+  let min = todayUtc - MIN_DAYS_BEFORE_TODAY * MS_PER_DAY
+  let max = todayUtc + MIN_DAYS_AFTER_TODAY * MS_PER_DAY
   for (const entry of entries) {
     const { start, due } = entryDateBounds(entry)
     for (const ms of [start, due]) {
       if (ms === null) continue
       const day = startOfDayUtc(ms)
-      if (min === null || day < min) min = day
-      if (max === null || day > max) max = day
+      if (day - PADDING_DAYS * MS_PER_DAY < min) min = day - PADDING_DAYS * MS_PER_DAY
+      if (day + PADDING_DAYS * MS_PER_DAY > max) max = day + PADDING_DAYS * MS_PER_DAY
     }
   }
-  const todayUtc = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate())
-  if (min === null || max === null) {
-    const startMs = todayUtc - DEFAULT_FALLBACK_DAYS_BEFORE * MS_PER_DAY
-    const endMs = todayUtc + DEFAULT_FALLBACK_DAYS_AFTER * MS_PER_DAY
-    return { startMs, endMs, days: Math.round((endMs - startMs) / MS_PER_DAY) + 1 }
-  }
-  const startMs = min - PADDING_DAYS * MS_PER_DAY
-  const endMs = max + PADDING_DAYS * MS_PER_DAY
-  return { startMs, endMs, days: Math.round((endMs - startMs) / MS_PER_DAY) + 1 }
+  return { startMs: min, endMs: max, days: Math.round((max - min) / MS_PER_DAY) + 1 }
 }
 
 function readLaneValues(entry: VaultEntry, field: string): string[] {

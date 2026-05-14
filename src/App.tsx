@@ -1707,7 +1707,7 @@ function App() {
                   <TaskTimeline view={selectedCanvasView.view} filteredEntries={canvasFilteredEntries} selectedEntryPath={activeTab?.entry?.path ?? null} onSelectNote={notes.handleSelectNote} onUpdateFrontmatter={notes.handleUpdateFrontmatter} locale={appLocale} />
                 )}
               </div>
-              <ResizeHandle onResize={layout.handleNoteListResize} />
+              <ResizeHandle onResize={layout.handleEditorDetailResize} />
             </>
           ) : noteListVisible && (
             <>
@@ -1721,7 +1721,10 @@ function App() {
               <ResizeHandle onResize={layout.handleNoteListResize} />
             </>
           )}
-          <div className={`app__editor${aiActivity.highlightElement === 'editor' || aiActivity.highlightElement === 'tab' ? ' ai-highlight' : ''}`}>
+          <div
+            className={`app__editor${aiActivity.highlightElement === 'editor' || aiActivity.highlightElement === 'tab' ? ' ai-highlight' : ''}`}
+            style={selectedCanvasView ? { width: layout.editorDetailWidth } : undefined}
+          >
             <Editor
               tabs={notes.tabs}
               activeTabPath={notes.activeTabPath}

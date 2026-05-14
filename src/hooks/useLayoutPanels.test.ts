@@ -147,6 +147,7 @@ describe('useLayoutPanels', () => {
       sidebar: 284,
       noteList: 340,
       inspector: 300,
+      editorDetail: 420,
     })
     expect(localStorage.getItem(LEGACY_APP_STORAGE_KEYS.layoutPanels)).toBeNull()
   })

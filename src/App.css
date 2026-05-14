@@ -77,9 +77,8 @@
 
 .app:has(.app__view-canvas) .app__editor {
   flex: 0 0 auto;
-  width: 420px;
   min-width: 320px;
-  max-width: 640px;
+  max-width: 720px;
 }
 
 @keyframes spin {

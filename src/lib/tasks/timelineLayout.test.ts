@@ -49,41 +49,41 @@ function entry(overrides: Partial<VaultEntry> = {}): VaultEntry {
 const TODAY = new Date(Date.UTC(2026, 4, 1)) // 2026-05-01
 
 describe('dateRangeFor', () => {
-  it('falls back to today-centered range when no dates are present', () => {
+  it('always spans at least today ± 365 days', () => {
     const range = dateRangeFor([entry()], TODAY)
-    expect(isoDateForAbsoluteMs(range.startMs)).toBe('2026-04-24')
-    expect(isoDateForAbsoluteMs(range.endMs)).toBe('2026-05-31')
+    expect(isoDateForAbsoluteMs(range.startMs)).toBe('2025-05-01')
+    expect(isoDateForAbsoluteMs(range.endMs)).toBe('2027-05-01')
   })
 
-  it('pads the date range by 3 days on each side when dates are present', () => {
-    const entries = [
-      entry({ properties: { start: '2026-05-10', due: '2026-05-20' } }),
-    ]
+  it('keeps the wide default when task dates fall inside the ± 365-day window', () => {
+    const entries = [entry({ properties: { start: '2026-05-10', due: '2026-05-20' } })]
     const range = dateRangeFor(entries, TODAY)
-    expect(isoDateForAbsoluteMs(range.startMs)).toBe('2026-05-07')
-    expect(isoDateForAbsoluteMs(range.endMs)).toBe('2026-05-23')
+    expect(isoDateForAbsoluteMs(range.startMs)).toBe('2025-05-01')
+    expect(isoDateForAbsoluteMs(range.endMs)).toBe('2027-05-01')
   })
 
-  it('expands to cover all entries when multiple are present', () => {
+  it('expands outward (with 3-day padding) when task dates extend past the default window', () => {
     const entries = [
-      entry({ properties: { start: '2026-05-10', due: '2026-05-12' } }),
-      entry({ properties: { start: '2026-06-01', due: '2026-06-05' } }),
+      entry({ properties: { start: '2028-01-15', due: '2028-01-25' } }),
+      entry({ properties: { start: '2024-10-01', due: '2024-10-05' } }),
     ]
     const range = dateRangeFor(entries, TODAY)
-    expect(isoDateForAbsoluteMs(range.startMs)).toBe('2026-05-07')
-    expect(isoDateForAbsoluteMs(range.endMs)).toBe('2026-06-08')
+    expect(isoDateForAbsoluteMs(range.startMs)).toBe('2024-09-28')
+    expect(isoDateForAbsoluteMs(range.endMs)).toBe('2028-01-28')
   })
 })
 
 describe('layoutBars', () => {
   it('produces one bar per entry with correct x and width', () => {
+    // Range start defaults to TODAY - 365 days = 2025-05-01.
+    // Bar starts 2026-05-10 → 374 days from range start.
     const a = entry({ path: '/a.md', properties: { start: '2026-05-10', due: '2026-05-15' } })
     const range = dateRangeFor([a], TODAY)
     const { lanes } = layoutBars([a], range, { property: 'status' }, 40, '(unset)')
     expect(lanes).toHaveLength(1)
     const bar = lanes[0].bars[0]
     expect(bar.entry.path).toBe('/a.md')
-    expect(bar.xPx).toBe(3 * 40)
+    expect(bar.xPx).toBe(374 * 40)
     expect(bar.widthPx).toBe(5 * 40)
   })
 

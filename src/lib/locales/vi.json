@@ -701,5 +701,9 @@
   "tasks.timeline.noDatesFooter": "{count} task without dates",
   "tasks.timeline.today": "",
   "sidebar.nav.tasks": "Tasks",
-  "tasks.cell.completion": "Complete"
+  "tasks.cell.completion": "Complete",
+  "tasks.timeline.zoomLabel": "Zoom",
+  "tasks.timeline.zoom.day": "Day",
+  "tasks.timeline.zoom.week": "Week",
+  "tasks.timeline.zoom.month": "Month"
 }
