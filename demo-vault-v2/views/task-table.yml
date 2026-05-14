@@ -1,4 +1,4 @@
-name: Q2 Launch Table
+name: Task Table
 icon: table
 color: green
 sort: "property:priority:asc"
@@ -15,6 +15,3 @@ filters:
     - field: type
       op: equals
       value: task
-    - field: project
-      op: contains
-      value: "Q2 Launch"

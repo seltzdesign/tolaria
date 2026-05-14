@@ -91,7 +91,7 @@ export class ProjectView {
 }
 
 export function isProjectEntry(entry: VaultEntry): boolean {
-  return entry.isA === 'project'
+  return entry.isA?.toLowerCase() === 'project'
 }
 
 export function asProject(entry: VaultEntry): ProjectView | null {

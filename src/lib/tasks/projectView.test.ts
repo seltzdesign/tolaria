@@ -57,6 +57,12 @@ describe('asProject / isProjectEntry', () => {
     expect(asProject(baseEntry({ isA: 'task' }))).toBeNull()
     expect(asProject(baseEntry({ isA: null }))).toBeNull()
   })
+
+  it('treats isA case-insensitively so `type: Project` notes still resolve', () => {
+    expect(isProjectEntry(baseEntry({ isA: 'Project' }))).toBe(true)
+    expect(isProjectEntry(baseEntry({ isA: 'PROJECT' }))).toBe(true)
+    expect(asProject(baseEntry({ isA: 'Project' }))).toBeInstanceOf(ProjectView)
+  })
 })
 
 describe('ProjectView accessors', () => {

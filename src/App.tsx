@@ -14,6 +14,12 @@ import { PulseView } from './components/PulseView'
 import { TaskBoard } from './components/tasks/TaskBoard'
 import { TaskTable } from './components/tasks/TaskTable'
 import { TaskTimeline } from './components/tasks/TaskTimeline'
+import { CanvasProjectPicker } from './components/tasks/CanvasProjectPicker'
+import {
+  filterEntriesByProject,
+  listCanvasProjectOptions,
+  useCanvasProjectFilter,
+} from './lib/tasks/canvasProjectFilter'
 import { StatusBar } from './components/StatusBar'
 import { SettingsPanel } from './components/SettingsPanel'
 import { CloneVaultModal } from './components/CloneVaultModal'
@@ -1637,10 +1643,19 @@ function App() {
     return null
   }, [effectiveSelection, vault.views])
 
+  const canvasProjects = useMemo(() => listCanvasProjectOptions(visibleEntries), [visibleEntries])
+  const canvasViewFilename = selectedCanvasView?.view.filename ?? ''
+  const { projectPath: canvasProjectPath, setProjectPath: setCanvasProjectPath } = useCanvasProjectFilter(canvasViewFilename)
+  const effectiveCanvasProjectPath = useMemo(() => {
+    if (!canvasProjectPath) return null
+    return canvasProjects.some((project) => project.path === canvasProjectPath) ? canvasProjectPath : null
+  }, [canvasProjectPath, canvasProjects])
+
   const canvasFilteredEntries = useMemo(() => {
     if (!selectedCanvasView) return []
-    return filterEntriesForViewFile(visibleEntries, selectedCanvasView.view)
-  }, [selectedCanvasView, visibleEntries])
+    const viewFiltered = filterEntriesForViewFile(visibleEntries, selectedCanvasView.view)
+    return filterEntriesByProject(viewFiltered, effectiveCanvasProjectPath, visibleEntries)
+  }, [selectedCanvasView, visibleEntries, effectiveCanvasProjectPath])
 
   const {
     isStartupLoading,
@@ -1699,13 +1714,18 @@ function App() {
           {selectedCanvasView ? (
             <>
               <div className="app__view-canvas">
-                {selectedCanvasView.kind === 'board' ? (
-                  <TaskBoard view={selectedCanvasView.view} filteredEntries={canvasFilteredEntries} allEntries={visibleEntries} selectedEntryPath={activeTab?.entry?.path ?? null} onSelectNote={notes.handleSelectNote} onUpdateFrontmatter={notes.handleUpdateFrontmatter} locale={appLocale} />
-                ) : selectedCanvasView.kind === 'table' ? (
-                  <TaskTable view={selectedCanvasView.view} filteredEntries={canvasFilteredEntries} selectedEntryPath={activeTab?.entry?.path ?? null} onSelectNote={notes.handleSelectNote} onUpdateViewDefinition={handleUpdateViewDefinition} locale={appLocale} />
-                ) : (
-                  <TaskTimeline view={selectedCanvasView.view} filteredEntries={canvasFilteredEntries} selectedEntryPath={activeTab?.entry?.path ?? null} onSelectNote={notes.handleSelectNote} onUpdateFrontmatter={notes.handleUpdateFrontmatter} locale={appLocale} />
-                )}
+                <div className="app__view-canvas__header">
+                  <CanvasProjectPicker projects={canvasProjects} value={effectiveCanvasProjectPath} onChange={setCanvasProjectPath} locale={appLocale} />
+                </div>
+                <div className="app__view-canvas__body">
+                  {selectedCanvasView.kind === 'board' ? (
+                    <TaskBoard view={selectedCanvasView.view} filteredEntries={canvasFilteredEntries} allEntries={visibleEntries} selectedEntryPath={activeTab?.entry?.path ?? null} onSelectNote={notes.handleSelectNote} onUpdateFrontmatter={notes.handleUpdateFrontmatter} locale={appLocale} />
+                  ) : selectedCanvasView.kind === 'table' ? (
+                    <TaskTable view={selectedCanvasView.view} filteredEntries={canvasFilteredEntries} selectedEntryPath={activeTab?.entry?.path ?? null} onSelectNote={notes.handleSelectNote} onUpdateViewDefinition={handleUpdateViewDefinition} locale={appLocale} />
+                  ) : (
+                    <TaskTimeline view={selectedCanvasView.view} filteredEntries={canvasFilteredEntries} selectedEntryPath={activeTab?.entry?.path ?? null} onSelectNote={notes.handleSelectNote} onUpdateFrontmatter={notes.handleUpdateFrontmatter} locale={appLocale} />
+                  )}
+                </div>
               </div>
               <ResizeHandle onResize={layout.handleEditorDetailResize} />
             </>

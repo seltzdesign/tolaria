@@ -705,5 +705,8 @@
   "tasks.timeline.zoomLabel": "Zoom",
   "tasks.timeline.zoom.day": "Day",
   "tasks.timeline.zoom.week": "Week",
-  "tasks.timeline.zoom.month": "Month"
+  "tasks.timeline.zoom.month": "Month",
+  "tasks.canvas.projectLabel": "Project",
+  "tasks.canvas.allProjects": "All projects",
+  "tasks.canvas.noProjects": "No projects in this vault"
 }
