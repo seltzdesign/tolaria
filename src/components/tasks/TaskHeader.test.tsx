@@ -57,7 +57,28 @@ describe('TaskHeader', () => {
     expect(screen.getByTestId('task-date-trigger-due')).toBeInTheDocument()
     expect(screen.getByTestId('task-date-trigger-start')).toBeInTheDocument()
     expect(screen.getByTestId('task-estimate-input')).toBeInTheDocument()
+    expect(screen.getByTestId('task-completion-input')).toBeInTheDocument()
     expect(screen.getByTestId('task-project-input')).toBeInTheDocument()
+  })
+
+  it('renders an inline label next to every property cell that lacks one', () => {
+    render(<TaskHeader entry={baseEntry()} entries={[]} onUpdate={vi.fn()} />)
+    // Cells without their own label render a `<label>` wrapper from TaskHeader
+    expect(screen.getByText('Status')).toBeInTheDocument()
+    expect(screen.getByText('Priority')).toBeInTheDocument()
+    expect(screen.getByText('Estimate')).toBeInTheDocument()
+    expect(screen.getByText('Complete')).toBeInTheDocument()
+    expect(screen.getByText('Project')).toBeInTheDocument()
+  })
+
+  it('emits an onUpdate for completion input on blur', () => {
+    const onUpdate = vi.fn()
+    render(<TaskHeader entry={baseEntry()} entries={[]} onUpdate={onUpdate} />)
+    const input = screen.getByTestId('task-completion-input') as HTMLInputElement
+    fireEvent.change(input, { target: { value: '75' } })
+    fireEvent.blur(input)
+    expect(onUpdate).toHaveBeenCalledWith('completion', 75)
+    expect(trackEvent).toHaveBeenCalledWith('task_property_edited', { property: 'completion' })
   })
 
   it('emits an onUpdate for estimate input on blur', () => {

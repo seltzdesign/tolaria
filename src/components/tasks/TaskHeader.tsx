@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import type { VaultEntry } from '../../types'
 import {
   formatDateOrDateTime,
@@ -9,6 +9,7 @@ import { TaskView } from '../../lib/tasks/taskView'
 import { trackEvent } from '../../lib/telemetry'
 import { createTranslator, type AppLocale } from '../../lib/i18n'
 import { ChipListCell } from './cells/ChipListCell'
+import { CompletionCell } from './cells/CompletionCell'
 import { DateCell } from './cells/DateCell'
 import { EstimateCell } from './cells/EstimateCell'
 import { PriorityCell } from './cells/PriorityCell'
@@ -28,7 +29,17 @@ type TaskTelemetryProperty =
   | 'project'
   | 'labels'
   | 'estimate'
+  | 'completion'
   | 'blocked_by'
+
+function FieldLabel({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <label className="flex items-center gap-2 text-sm">
+      <span className="text-muted-foreground">{label}</span>
+      {children}
+    </label>
+  )
+}
 
 export interface TaskHeaderProps {
   entry: VaultEntry
@@ -81,6 +92,10 @@ export function TaskHeader({ entry, entries, onUpdate, locale = 'en' }: TaskHead
     onUpdate('estimate', next)
     trackPropertyEdit('estimate')
   }
+  const handleCompletion = (next: number | null) => {
+    onUpdate('completion', next)
+    trackPropertyEdit('completion')
+  }
   const handleLabels = (next: string[]) => {
     onUpdate('labels', next.length > 0 ? next : null)
     trackPropertyEdit('labels')
@@ -103,13 +118,17 @@ export function TaskHeader({ entry, entries, onUpdate, locale = 'en' }: TaskHead
       className="flex flex-wrap items-center gap-3 border-b px-4 py-3"
       data-testid="task-header"
     >
-      <StatusPillCell
-        value={task.status}
-        options={projectStatuses}
-        onChange={handleStatus}
-        placeholder={t('tasks.cell.status')}
-      />
-      <PriorityCell value={task.priority} onChange={handlePriority} placeholder={t('tasks.cell.priority')} />
+      <FieldLabel label={t('tasks.cell.status')}>
+        <StatusPillCell
+          value={task.status}
+          options={projectStatuses}
+          onChange={handleStatus}
+          placeholder={t('tasks.cell.status')}
+        />
+      </FieldLabel>
+      <FieldLabel label={t('tasks.cell.priority')}>
+        <PriorityCell value={task.priority} onChange={handlePriority} placeholder={t('tasks.cell.priority')} />
+      </FieldLabel>
       <DateCell
         label={t('tasks.cell.due')}
         value={task.due}
@@ -128,14 +147,21 @@ export function TaskHeader({ entry, entries, onUpdate, locale = 'en' }: TaskHead
         onChange={handleDate('completed')}
         clearLabel={t('tasks.cell.clear')}
       />
-      <EstimateCell value={task.estimate} onChange={handleEstimate} placeholder={t('tasks.cell.estimate')} />
+      <FieldLabel label={t('tasks.cell.estimate')}>
+        <EstimateCell value={task.estimate} onChange={handleEstimate} placeholder={t('tasks.cell.estimate')} />
+      </FieldLabel>
+      <FieldLabel label={t('tasks.cell.completion')}>
+        <CompletionCell value={task.completion} onChange={handleCompletion} />
+      </FieldLabel>
       <ChipListCell
         label={t('tasks.cell.labels')}
         values={task.labels}
         onChange={handleLabels}
         placeholder={t('tasks.cell.addLabel')}
       />
-      <ProjectCell value={task.project} onChange={handleProject} placeholder={t('tasks.cell.project')} />
+      <FieldLabel label={t('tasks.cell.project')}>
+        <ProjectCell value={task.project} onChange={handleProject} placeholder={t('tasks.cell.project')} />
+      </FieldLabel>
       <ChipListCell
         label={t('tasks.cell.assignees')}
         values={task.assignees}

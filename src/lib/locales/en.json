@@ -44,6 +44,7 @@
   "tasks.cell.start": "Start",
   "tasks.cell.completed": "Done",
   "tasks.cell.estimate": "Estimate",
+  "tasks.cell.completion": "Complete",
   "tasks.cell.labels": "Labels",
   "tasks.cell.project": "Project",
   "tasks.cell.assignees": "Assignees",

@@ -85,6 +85,14 @@ export class TaskView {
     return propertyNumber(this.entry, 'estimate')
   }
 
+  get completion(): number | null {
+    const raw = propertyNumber(this.entry, 'completion')
+    if (raw === null) return null
+    if (raw < 0) return 0
+    if (raw > 100) return 100
+    return Math.round(raw)
+  }
+
   get labels(): string[] {
     return propertyStrings(this.entry, 'labels')
   }

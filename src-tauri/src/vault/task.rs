@@ -103,6 +103,11 @@ impl<'a> TaskView<'a> {
         self.0.properties.get("estimate")?.as_f64()
     }
 
+    pub fn completion(&self) -> Option<f64> {
+        let raw = self.0.properties.get("completion")?.as_f64()?;
+        Some(raw.clamp(0.0, 100.0).round())
+    }
+
     pub fn labels(&self) -> Vec<String> {
         property_strings(self.0, "labels")
     }
@@ -300,6 +305,28 @@ mod tests {
         assert_eq!(task.estimate(), Some(3.0));
         assert_eq!(task.github_sync_status(), Some("synced"));
         assert_eq!(task.github_item_node_id(), Some("PVTI_lAHO"));
+    }
+
+    #[test]
+    fn completion_clamps_to_zero_through_one_hundred() {
+        let mut entry = task_entry();
+        entry
+            .properties
+            .insert("completion".into(), serde_json::json!(50));
+        assert_eq!(entry.as_task().unwrap().completion(), Some(50.0));
+
+        entry
+            .properties
+            .insert("completion".into(), serde_json::json!(150));
+        assert_eq!(entry.as_task().unwrap().completion(), Some(100.0));
+
+        entry
+            .properties
+            .insert("completion".into(), serde_json::json!(-20));
+        assert_eq!(entry.as_task().unwrap().completion(), Some(0.0));
+
+        entry.properties.remove("completion");
+        assert_eq!(entry.as_task().unwrap().completion(), None);
     }
 
     #[test]
