@@ -48,6 +48,17 @@ describe('filterEntries', () => {
     expect(result.map((entry) => entry.title)).toEqual(['Active'])
   })
 
+  it('matches section group type case-insensitively against entry isA', () => {
+    const entries = [
+      makeEntry({ path: '/1.md', title: 'Lowercase Type', isA: 'project' }),
+      makeEntry({ path: '/2.md', title: 'Mixed Case Type', isA: 'Project' }),
+      makeEntry({ path: '/3.md', title: 'Other', isA: 'Note' }),
+    ]
+
+    const result = filterEntries(entries, { kind: 'sectionGroup', type: 'Project' })
+    expect(result.map((entry) => entry.title).sort()).toEqual(['Lowercase Type', 'Mixed Case Type'])
+  })
+
   it('filters all notes by open sub-filter', () => {
     const entries = [
       makeEntry({ path: '/1.md', title: 'Active', isA: 'Project' }),
@@ -205,6 +216,16 @@ describe('countByFilter', () => {
 
   it('returns zeros when a type has no matching entries', () => {
     expect(countByFilter([], 'Project')).toEqual({ open: 0, archived: 0 })
+  })
+
+  it('counts entries case-insensitively against the type name', () => {
+    const entries = [
+      makeEntry({ path: '/1.md', isA: 'project' }),
+      makeEntry({ path: '/2.md', isA: 'Project' }),
+      makeEntry({ path: '/3.md', isA: 'PROJECT', archived: true }),
+    ]
+
+    expect(countByFilter(entries, 'Project')).toEqual({ open: 2, archived: 1 })
   })
 })
 
@@ -447,6 +468,11 @@ describe('isOpenTask', () => {
     expect(isOpenTask(makeEntry({ path: '/a.md', title: 'A', isA: 'task', status: 'Done' }))).toBe(false)
     expect(isOpenTask(makeEntry({ path: '/b.md', title: 'B', isA: 'task', status: 'done' }))).toBe(false)
     expect(isOpenTask(makeEntry({ path: '/c.md', title: 'C', isA: 'task', status: 'DONE' }))).toBe(false)
+  })
+
+  it('matches the task type case-insensitively', () => {
+    expect(isOpenTask(makeEntry({ path: '/a.md', title: 'A', isA: 'Task' }))).toBe(true)
+    expect(isOpenTask(makeEntry({ path: '/b.md', title: 'B', isA: 'TASK' }))).toBe(true)
   })
 })
 

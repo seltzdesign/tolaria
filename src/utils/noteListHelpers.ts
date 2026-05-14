@@ -422,7 +422,8 @@ export function buildRelationshipGroups(
   const rels = entity.relationships ?? {}
 
   if (entity.isA === 'Type') {
-    b.filterAndAdd('Instances', (e) => e.isA === entity.title)
+    const target = entity.title.toLowerCase()
+    b.filterAndAdd('Instances', (e) => e.isA?.toLowerCase() === target)
   }
 
   // Direct relationships first — all keys from entity.relationships take
@@ -443,7 +444,7 @@ const isActive = (e: VaultEntry) => !e.archived
 const isMarkdown = (e: VaultEntry) => e.fileKind === 'markdown' || !e.fileKind
 
 export function isOpenTask(entry: VaultEntry): boolean {
-  if (entry.isA !== 'task') return false
+  if (entry.isA?.toLowerCase() !== 'task') return false
   if (entry.archived) return false
   return (entry.status ?? '').toLowerCase() !== 'done'
 }
@@ -524,7 +525,8 @@ function filterFolderEntries(entries: VaultEntry[], selection: Extract<SidebarSe
 }
 
 function filterSectionGroupEntries(entries: VaultEntry[], type: string, subFilter?: NoteListFilter): VaultEntry[] {
-  const typeEntries = entries.filter((entry) => isMarkdown(entry) && entry.isA === type)
+  const target = type.toLowerCase()
+  const typeEntries = entries.filter((entry) => isMarkdown(entry) && entry.isA?.toLowerCase() === target)
   return subFilter ? applySubFilter(typeEntries, subFilter) : typeEntries.filter(isActive)
 }
 
@@ -572,9 +574,10 @@ export function filterEntries(
 
 /** Count notes per sub-filter for a given type. */
 export function countByFilter(entries: VaultEntry[], type: string): Record<NoteListFilter, number> {
+  const target = type.toLowerCase()
   let open = 0, archived = 0
   for (const e of entries) {
-    if (!isMarkdown(e) || e.isA !== type) continue
+    if (!isMarkdown(e) || e.isA?.toLowerCase() !== target) continue
     if (e.archived) archived++
     else open++
   }
