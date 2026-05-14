@@ -1,47 +1,58 @@
-import { useState } from 'react'
-import { Input } from '../../ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+
+const NONE_VALUE = '__none__'
+
+export interface ProjectOption {
+  path: string
+  title: string
+}
 
 export interface ProjectCellProps {
   value: string | null
-  onChange: (value: string | null) => void
-  disabled?: boolean
+  options: ProjectOption[]
+  onChange: (path: string | null) => void
   placeholder?: string
+  emptyLabel?: string
+  noProjectsLabel?: string
+  disabled?: boolean
 }
 
 export function ProjectCell({
   value,
+  options,
   onChange,
-  disabled = false,
   placeholder = 'Project',
+  emptyLabel = 'None',
+  noProjectsLabel = 'No projects in this vault',
+  disabled = false,
 }: ProjectCellProps) {
-  const [draft, setDraft] = useState(value ?? '')
-  const [lastValue, setLastValue] = useState<string | null>(value)
-  if (value !== lastValue) {
-    setLastValue(value)
-    setDraft(value ?? '')
-  }
-
-  const commit = () => {
-    const trimmed = draft.trim()
-    const next = trimmed.length > 0 ? trimmed : null
-    if (next !== (value ?? null)) onChange(next)
+  const handleChange = (next: string) => {
+    onChange(next === NONE_VALUE ? null : next)
   }
 
   return (
-    <Input
-      value={draft}
-      placeholder={placeholder}
-      disabled={disabled}
-      onChange={(event) => setDraft(event.target.value)}
-      onBlur={commit}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter') {
-          event.preventDefault()
-          commit()
-        }
-      }}
-      data-testid="task-project-input"
-      className="h-8 w-40"
-    />
+    <Select value={value ?? NONE_VALUE} onValueChange={handleChange} disabled={disabled}>
+      <SelectTrigger
+        size="sm"
+        className="h-8 w-40 border-border bg-[var(--bg-input)] px-2 text-xs"
+        data-testid="task-project-select"
+      >
+        <SelectValue placeholder={placeholder} />
+      </SelectTrigger>
+      <SelectContent align="start" className="z-[13000]">
+        <SelectItem value={NONE_VALUE} className="text-xs">
+          {emptyLabel}
+        </SelectItem>
+        {options.length === 0 ? (
+          <div className="px-2 py-1 text-xs text-muted-foreground">{noProjectsLabel}</div>
+        ) : (
+          options.map((option) => (
+            <SelectItem key={option.path} value={option.path} className="text-xs">
+              {option.title}
+            </SelectItem>
+          ))
+        )}
+      </SelectContent>
+    </Select>
   )
 }

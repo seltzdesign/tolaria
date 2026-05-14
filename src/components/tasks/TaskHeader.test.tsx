@@ -58,7 +58,7 @@ describe('TaskHeader', () => {
     expect(screen.getByTestId('task-date-trigger-start')).toBeInTheDocument()
     expect(screen.getByTestId('task-estimate-input')).toBeInTheDocument()
     expect(screen.getByTestId('task-completion-input')).toBeInTheDocument()
-    expect(screen.getByTestId('task-project-input')).toBeInTheDocument()
+    expect(screen.getByTestId('task-project-select')).toBeInTheDocument()
   })
 
   it('renders an inline label next to every property cell that lacks one', () => {
@@ -91,25 +91,18 @@ describe('TaskHeader', () => {
     expect(trackEvent).toHaveBeenCalledWith('task_property_edited', { property: 'estimate' })
   })
 
-  it('emits a wikilink-shaped value when setting the project', () => {
-    const onUpdate = vi.fn()
-    render(<TaskHeader entry={baseEntry()} entries={[]} onUpdate={onUpdate} />)
-    const input = screen.getByTestId('task-project-input') as HTMLInputElement
-    fireEvent.change(input, { target: { value: 'Q2 Launch' } })
-    fireEvent.blur(input)
-    expect(onUpdate).toHaveBeenCalledWith('project', '[[Q2 Launch]]')
-  })
-
-  it('emits null when clearing the project', () => {
-    const onUpdate = vi.fn()
-    const entry = baseEntry({
-      relationships: { project: ['[[Q2 Launch]]'] },
+  it('shows the resolved project title in the project select trigger', () => {
+    const projectEntry = baseEntry({
+      path: '/vault/q2-launch.md',
+      filename: 'q2-launch.md',
+      title: 'Q2 Launch',
+      isA: 'project',
     })
-    render(<TaskHeader entry={entry} entries={[]} onUpdate={onUpdate} />)
-    const input = screen.getByTestId('task-project-input') as HTMLInputElement
-    fireEvent.change(input, { target: { value: '   ' } })
-    fireEvent.blur(input)
-    expect(onUpdate).toHaveBeenCalledWith('project', null)
+    const taskEntry = baseEntry({
+      relationships: { project: ['[[q2-launch]]'] },
+    })
+    render(<TaskHeader entry={taskEntry} entries={[projectEntry]} onUpdate={vi.fn()} />)
+    expect(screen.getByTestId('task-project-select')).toHaveTextContent('Q2 Launch')
   })
 
   it('adds a chip and emits the wikilink-wrapped array for assignees', () => {

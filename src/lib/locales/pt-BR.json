@@ -708,5 +708,6 @@
   "tasks.timeline.zoom.month": "Month",
   "tasks.canvas.projectLabel": "Project",
   "tasks.canvas.allProjects": "All projects",
-  "tasks.canvas.noProjects": "No projects in this vault"
+  "tasks.canvas.noProjects": "No projects in this vault",
+  "tasks.cell.none": "None"
 }

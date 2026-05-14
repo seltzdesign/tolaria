@@ -4,9 +4,12 @@ import {
   formatDateOrDateTime,
   type DateOrDateTime,
 } from '../../lib/tasks/dateOrDateTime'
+import { listCanvasProjectOptions } from '../../lib/tasks/canvasProjectFilter'
 import { asProject } from '../../lib/tasks/projectView'
+import { buildProjectWikilinkValue } from '../../lib/tasks/projectWikilink'
 import { TaskView } from '../../lib/tasks/taskView'
 import { trackEvent } from '../../lib/telemetry'
+import { resolveEntry } from '../../utils/wikilink'
 import { createTranslator, type AppLocale } from '../../lib/i18n'
 import { ChipListCell } from './cells/ChipListCell'
 import { CompletionCell } from './cells/CompletionCell'
@@ -53,16 +56,12 @@ function wikilinkArray(targets: string[]): string[] {
 }
 
 function statusesForProject(
-  entries: readonly VaultEntry[],
-  projectTitle: string | null,
+  projectEntry: VaultEntry | null,
 ): readonly string[] {
-  if (!projectTitle) return []
-  const projectEntry = entries.find(
-    (entry) => entry.isA === 'project' && entry.title === projectTitle,
-  )
   if (!projectEntry) return []
   return asProject(projectEntry)?.statuses ?? []
 }
+
 
 function trackPropertyEdit(property: TaskTelemetryProperty): void {
   trackEvent('task_property_edited', { property })
@@ -71,10 +70,12 @@ function trackPropertyEdit(property: TaskTelemetryProperty): void {
 export function TaskHeader({ entry, entries, onUpdate, locale = 'en' }: TaskHeaderProps) {
   const task = useMemo(() => new TaskView(entry), [entry])
   const t = useMemo(() => createTranslator(locale), [locale])
-  const projectStatuses = useMemo(
-    () => statusesForProject(entries, task.project),
-    [entries, task.project],
+  const projectOptions = useMemo(() => listCanvasProjectOptions(entries), [entries])
+  const projectEntry = useMemo(
+    () => (task.project ? resolveEntry(entries, task.project, entry) ?? null : null),
+    [entries, entry, task.project],
   )
+  const projectStatuses = useMemo(() => statusesForProject(projectEntry), [projectEntry])
 
   const handleStatus = (next: string | null) => {
     onUpdate('status', next)
@@ -108,8 +109,8 @@ export function TaskHeader({ entry, entries, onUpdate, locale = 'en' }: TaskHead
     onUpdate('blocked_by', next.length > 0 ? wikilinkArray(next) : null)
     trackPropertyEdit('blocked_by')
   }
-  const handleProject = (next: string | null) => {
-    onUpdate('project', next ? `[[${next}]]` : null)
+  const handleProject = (nextPath: string | null) => {
+    onUpdate('project', buildProjectWikilinkValue(nextPath, entries))
     trackPropertyEdit('project')
   }
 
@@ -160,7 +161,14 @@ export function TaskHeader({ entry, entries, onUpdate, locale = 'en' }: TaskHead
         placeholder={t('tasks.cell.addLabel')}
       />
       <FieldLabel label={t('tasks.cell.project')}>
-        <ProjectCell value={task.project} onChange={handleProject} placeholder={t('tasks.cell.project')} />
+        <ProjectCell
+          value={projectEntry?.path ?? null}
+          options={projectOptions}
+          onChange={handleProject}
+          placeholder={t('tasks.cell.project')}
+          emptyLabel={t('tasks.cell.none')}
+          noProjectsLabel={t('tasks.canvas.noProjects')}
+        />
       </FieldLabel>
       <ChipListCell
         label={t('tasks.cell.assignees')}

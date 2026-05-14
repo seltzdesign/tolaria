@@ -53,6 +53,7 @@
   "tasks.cell.addAssignee": "Add assignee",
   "tasks.cell.addBlockedBy": "Add task",
   "tasks.cell.clear": "Clear",
+  "tasks.cell.none": "None",
   "tasks.project.taskFolder": "Task folder",
   "tasks.project.statuses": "Statuses",
   "tasks.project.terminalStatuses": "Terminal",
