@@ -57,7 +57,7 @@ async fn list_projects_for_user_returns_parsed_summaries() {
     let projects = list_projects_for_user(&http, &config, "x").await.unwrap();
     assert_eq!(projects.len(), 2);
     assert_eq!(projects[0].title, "Alpha");
-    assert_eq!(projects[1].closed, true);
+    assert!(projects[1].closed);
 }
 
 #[tokio::test]

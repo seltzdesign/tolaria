@@ -75,7 +75,7 @@ pub struct ProjectsV2Connection {
     pub nodes: Vec<ProjectSummary>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ProjectSummary {
     pub id: String,
     pub number: i32,
@@ -137,7 +137,7 @@ pub struct ProjectFieldsConnection {
     pub nodes: Vec<ProjectField>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ProjectField {
     pub id: String,
     pub name: String,
@@ -147,7 +147,7 @@ pub struct ProjectField {
     pub options: Vec<ProjectFieldOption>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ProjectFieldOption {
     pub id: String,
     pub name: String,

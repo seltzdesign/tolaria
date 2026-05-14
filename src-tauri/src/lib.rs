@@ -519,6 +519,9 @@ macro_rules! app_invoke_handler {
             commands::github_clear_pat,
             commands::github_pat_present,
             commands::github_test_connection,
+            commands::github_resolve_project_url,
+            commands::github_bind_project,
+            commands::github_unbind_project,
             vault_watcher::start_vault_watcher,
             vault_watcher::stop_vault_watcher
         ]

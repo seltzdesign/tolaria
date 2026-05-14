@@ -62,7 +62,7 @@ mod tests {
 
     #[test]
     fn store_pat_rejects_whitespace_only() {
-        let err = store_pat("\t \n").err().expect("expected error");
+        let err = store_pat("\t \n").expect_err("expected error");
         assert!(err.to_lowercase().contains("empty"));
     }
 }

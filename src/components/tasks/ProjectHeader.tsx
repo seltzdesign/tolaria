@@ -1,10 +1,12 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import type { VaultEntry } from '../../types'
 import { ProjectView } from '../../lib/tasks/projectView'
 import { trackEvent } from '../../lib/telemetry'
 import { createTranslator, type AppLocale } from '../../lib/i18n'
 import { ChipListCell } from './cells/ChipListCell'
 import { Input } from '../ui/input'
+import { Button } from '../ui/button'
+import { BindGitHubProjectModal } from './BindGitHubProjectModal'
 
 export type ProjectUpdate = (key: string, value: ProjectPropertyValue) => void
 type ProjectPropertyValue = string | number | boolean | string[] | null
@@ -25,9 +27,17 @@ function trackPropertyEdit(property: ProjectTelemetryProperty): void {
   trackEvent('project_property_edited', { property })
 }
 
+function readProjectUrl(entry: VaultEntry): string | null {
+  const value = entry.properties.github_project_url
+  return typeof value === 'string' && value.length > 0 ? value : null
+}
+
 export function ProjectHeader({ entry, onUpdate, locale = 'en' }: ProjectHeaderProps) {
   const project = useMemo(() => new ProjectView(entry), [entry])
   const t = useMemo(() => createTranslator(locale), [locale])
+  const [bindOpen, setBindOpen] = useState(false)
+  const projectUrl = readProjectUrl(entry)
+  const alreadyBound = projectUrl !== null
 
   const handleTaskFolder = (next: string) => {
     const trimmed = next.trim()
@@ -83,6 +93,23 @@ export function ProjectHeader({ entry, onUpdate, locale = 'en' }: ProjectHeaderP
           className="h-8 w-32"
         />
       </label>
+      <Button
+        type="button"
+        variant={alreadyBound ? 'outline' : 'default'}
+        size="sm"
+        onClick={() => setBindOpen(true)}
+        data-testid="project-bind-github"
+      >
+        {alreadyBound ? t('tasks.project.editGithubBinding') : t('tasks.project.bindGithub')}
+      </Button>
+      <BindGitHubProjectModal
+        open={bindOpen}
+        notePath={entry.path}
+        initialUrl={projectUrl}
+        alreadyBound={alreadyBound}
+        locale={locale}
+        onClose={() => setBindOpen(false)}
+      />
     </header>
   )
 }
