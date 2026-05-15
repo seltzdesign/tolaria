@@ -441,12 +441,14 @@ function TaskOrProjectFrame({
   entries,
   onUpdateFrontmatter,
   locale,
+  vaultPath,
   children,
 }: {
   entry: VaultEntry
   entries: VaultEntry[]
   onUpdateFrontmatter?: UpdateFrontmatter
   locale?: AppLocale
+  vaultPath?: string | null
   children: React.ReactNode
 }) {
   if (isTaskEntry(entry) && onUpdateFrontmatter) {
@@ -468,6 +470,7 @@ function TaskOrProjectFrame({
       <ProjectEditor
         entry={entry}
         locale={locale}
+        vaultPath={vaultPath}
         onUpdate={(key, value) => {
           void onUpdateFrontmatter(entry.path, key, value as FrontmatterValue)
         }}
@@ -555,6 +558,7 @@ export function EditorContentLayout(model: EditorContentModel) {
             entries={entries}
             onUpdateFrontmatter={onUpdateFrontmatter}
             locale={locale}
+            vaultPath={vaultPath}
           >
             <RawModeEditorSection
               activeTab={activeTab}

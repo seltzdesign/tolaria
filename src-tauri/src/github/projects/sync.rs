@@ -320,7 +320,10 @@ fn build_frontmatter(input: &PullInput, remote: &RemoteSummary) -> Mapping {
             continue;
         }
         if let Some(value) = remote.field_values.get(github_key) {
-            set_str(&mut mapping, local_key, value);
+            mapping.insert(
+                YamlValue::String(local_key.clone()),
+                yaml_value_from_string(value),
+            );
         }
     }
     mapping
@@ -331,6 +334,24 @@ fn set_str(mapping: &mut Mapping, key: &str, value: &str) {
         YamlValue::String(key.to_string()),
         YamlValue::String(value.to_string()),
     );
+}
+
+/// Promote a raw field-value string into the YAML type Tolaria's task UI
+/// expects. Numeric fields like Estimate live as `BTreeMap<String, String>`
+/// in the snapshot for diff stability, but the local frontmatter must emit
+/// them as YAML numbers — Tolaria's `propertyNumber` reader rejects strings
+/// and the Estimate cell would otherwise render empty. Anything that doesn't
+/// parse as a number stays a string (dates, statuses, free text).
+fn yaml_value_from_string(value: &str) -> YamlValue {
+    if let Ok(n) = value.parse::<i64>() {
+        return YamlValue::Number(serde_yaml::Number::from(n));
+    }
+    if let Ok(n) = value.parse::<f64>() {
+        if n.is_finite() {
+            return YamlValue::Number(serde_yaml::Number::from(n));
+        }
+    }
+    YamlValue::String(value.to_string())
 }
 
 fn pick_new_task_path(
@@ -511,6 +532,25 @@ mod tests {
         }
     }
 
+    fn item_with_number_field(id: &str, title: &str, field_name: &str, value: f64) -> ProjectItem {
+        ProjectItem {
+            id: id.into(),
+            content: Some(ProjectItemContent::DraftIssue {
+                title: title.into(),
+                body: None,
+            }),
+            field_values: FieldValuesConnection {
+                nodes: vec![FieldValue::ProjectV2ItemFieldNumberValue {
+                    number: Some(value),
+                    field: FieldRef {
+                        id: format!("FIELD_{field_name}"),
+                        name: field_name.into(),
+                    },
+                }],
+            },
+        }
+    }
+
     fn issue_item(id: &str, number: i32, title: &str, repo: &str) -> ProjectItem {
         ProjectItem {
             id: id.into(),
@@ -670,5 +710,44 @@ mod tests {
         assert_eq!(title_slug("Hello, World!"), "hello-world");
         assert_eq!(title_slug("   "), "untitled");
         assert_eq!(title_slug("A/B/C"), "a-b-c");
+    }
+
+    #[test]
+    fn number_fields_land_as_yaml_numbers_not_quoted_strings() {
+        let sb = sandbox();
+        let mut input = make_input(
+            sb.vault.path(),
+            sb.cache.path(),
+            vec![item_with_number_field(
+                "PVTI_n",
+                "Estimated work",
+                "Estimate",
+                5.0,
+            )],
+        );
+        input.field_mappings = vec![("estimate".into(), "Estimate".into())];
+        pull(&input).unwrap();
+        let content =
+            std::fs::read_to_string(sb.vault.path().join("tasks/q2/estimated-work.md")).unwrap();
+        assert!(
+            content.contains("estimate: 5\n"),
+            "expected unquoted YAML number, got:\n{content}"
+        );
+    }
+
+    #[test]
+    fn yaml_value_promotion_recognizes_ints_floats_and_falls_back_to_string() {
+        assert_eq!(
+            yaml_value_from_string("42"),
+            YamlValue::Number(serde_yaml::Number::from(42i64))
+        );
+        match yaml_value_from_string("3.5") {
+            YamlValue::Number(_) => {}
+            other => panic!("expected number for `3.5`, got {other:?}"),
+        }
+        assert_eq!(
+            yaml_value_from_string("In Progress"),
+            YamlValue::String("In Progress".into())
+        );
     }
 }

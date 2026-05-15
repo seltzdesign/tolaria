@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { invoke } from '@tauri-apps/api/core'
 import type { VaultEntry } from '../../types'
 import { ProjectView } from '../../lib/tasks/projectView'
 import { trackEvent } from '../../lib/telemetry'
@@ -7,6 +8,16 @@ import { ChipListCell } from './cells/ChipListCell'
 import { Input } from '../ui/input'
 import { Button } from '../ui/button'
 import { BindGitHubProjectModal } from './BindGitHubProjectModal'
+
+interface PullResult {
+  created: number
+  updated: number
+  deleted: number
+  unchanged: number
+  items_seen: number
+  items_skipped: number
+  errors: string[]
+}
 
 export type ProjectUpdate = (key: string, value: ProjectPropertyValue) => void
 type ProjectPropertyValue = string | number | boolean | string[] | null
@@ -21,7 +32,14 @@ export interface ProjectHeaderProps {
   entry: VaultEntry
   onUpdate: ProjectUpdate
   locale?: AppLocale
+  vaultPath?: string | null
 }
+
+type SyncState =
+  | { kind: 'idle' }
+  | { kind: 'running' }
+  | { kind: 'success'; result: PullResult }
+  | { kind: 'error'; message: string }
 
 function trackPropertyEdit(property: ProjectTelemetryProperty): void {
   trackEvent('project_property_edited', { property })
@@ -32,12 +50,41 @@ function readProjectUrl(entry: VaultEntry): string | null {
   return typeof value === 'string' && value.length > 0 ? value : null
 }
 
-export function ProjectHeader({ entry, onUpdate, locale = 'en' }: ProjectHeaderProps) {
+export function ProjectHeader({
+  entry,
+  onUpdate,
+  locale = 'en',
+  vaultPath,
+}: ProjectHeaderProps) {
   const project = useMemo(() => new ProjectView(entry), [entry])
   const t = useMemo(() => createTranslator(locale), [locale])
   const [bindOpen, setBindOpen] = useState(false)
+  const [syncState, setSyncState] = useState<SyncState>({ kind: 'idle' })
   const projectUrl = readProjectUrl(entry)
   const alreadyBound = projectUrl !== null
+  const canSync = alreadyBound && typeof vaultPath === 'string' && vaultPath.length > 0
+
+  const handleSync = async () => {
+    if (!canSync) return
+    setSyncState({ kind: 'running' })
+    try {
+      const result = await invoke<PullResult>('github_sync_pull', {
+        vaultPath,
+        notePath: entry.path,
+      })
+      setSyncState({ kind: 'success', result })
+      trackEvent('github_project_sync_pulled', {
+        created: result.created,
+        updated: result.updated,
+        deleted: result.deleted,
+        unchanged: result.unchanged,
+        had_errors: result.errors.length > 0,
+      })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      setSyncState({ kind: 'error', message })
+    }
+  }
 
   const handleTaskFolder = (next: string) => {
     const trimmed = next.trim()
@@ -102,6 +149,45 @@ export function ProjectHeader({ entry, onUpdate, locale = 'en' }: ProjectHeaderP
       >
         {alreadyBound ? t('tasks.project.editGithubBinding') : t('tasks.project.bindGithub')}
       </Button>
+      {alreadyBound && (
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          disabled={!canSync || syncState.kind === 'running'}
+          onClick={() => {
+            void handleSync()
+          }}
+          data-testid="project-sync-github"
+        >
+          {syncState.kind === 'running'
+            ? t('tasks.project.syncing')
+            : t('tasks.project.syncNow')}
+        </Button>
+      )}
+      {syncState.kind === 'success' && (
+        <span
+          className="text-muted-foreground text-xs"
+          data-testid="project-sync-result"
+        >
+          {t('tasks.project.syncResult', {
+            created: syncState.result.created,
+            updated: syncState.result.updated,
+            deleted: syncState.result.deleted,
+            unchanged: syncState.result.unchanged,
+            items_seen: syncState.result.items_seen,
+            items_skipped: syncState.result.items_skipped,
+          })}
+        </span>
+      )}
+      {syncState.kind === 'error' && (
+        <span
+          className="text-destructive text-xs"
+          data-testid="project-sync-error"
+        >
+          {t('tasks.project.syncFailed', { message: syncState.message })}
+        </span>
+      )}
       <BindGitHubProjectModal
         open={bindOpen}
         notePath={entry.path}

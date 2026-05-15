@@ -93,12 +93,17 @@ pub fn github_unbind_project(note_path: String) -> Result<(), String> {
 /// Counts returned to the renderer from a manual pull. Mirrors
 /// `sync::PullSummary` but keeps the wire shape stable independent of the
 /// internal struct so we can extend it without breaking the frontend.
+/// `items_seen` is the raw `ListProjectItems` count before any filtering —
+/// useful for diagnosing "0 changes" outcomes (e.g. PAT can't read the
+/// underlying issue repo so `content` comes back null and items get skipped).
 #[derive(Debug, Serialize)]
 pub struct PullResult {
     pub created: u32,
     pub updated: u32,
     pub deleted: u32,
     pub unchanged: u32,
+    pub items_seen: u32,
+    pub items_skipped: u32,
     pub errors: Vec<String>,
 }
 
@@ -118,6 +123,8 @@ pub async fn github_sync_pull(vault_path: String, note_path: String) -> Result<P
     let items = client::list_all_project_items(&http, &config, &binding.project_node_id)
         .await
         .map_err(stringify)?;
+    let items_seen = items.len() as u32;
+    let items_skipped = items.iter().filter(|i| i.content.is_none()).count() as u32;
     let now = Utc::now().to_rfc3339();
     let project_note_stem = filename_stem(&note_path);
     let project_node_id = binding.project_node_id.clone();
@@ -138,6 +145,8 @@ pub async fn github_sync_pull(vault_path: String, note_path: String) -> Result<P
         updated: summary.updated,
         deleted: summary.deleted,
         unchanged: summary.unchanged,
+        items_seen,
+        items_skipped,
         errors: summary.errors,
     })
 }
