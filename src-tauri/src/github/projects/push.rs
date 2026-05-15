@@ -35,6 +35,11 @@ pub struct PushInput {
     pub vault_path: PathBuf,
     pub task_folder_rel: String,
     pub project_node_id: String,
+    /// Filename stem of the project note (e.g. `q2-launch`). Used to
+    /// recognise tasks that belong to this project via their `project:`
+    /// wikilink, even when they live outside `task_folder_rel`. Local
+    /// tasks created by hand commonly stay where the user put them.
+    pub project_note_stem: String,
     /// GitHub field name used for the local `status` key. Treated
     /// separately from `field_mappings` to match how the binding stores it.
     pub status_field: Option<String>,
@@ -88,40 +93,27 @@ pub struct PushPlan {
     pub warnings: Vec<String>,
 }
 
-/// Walk the bound project's task folder and produce a `PushPlan`. Files
-/// that fail to parse, lack `type: task`, or are bound to a different
-/// project are skipped silently (warnings are reserved for actionable
-/// cases like unmapped field types so the user can see what to fix).
+/// Walk the vault and produce a `PushPlan`. A task is considered part of
+/// this project if it either (a) lives inside the bound `task_folder_rel`
+/// or (b) carries a `project:` wikilink that resolves to the project
+/// note's filename stem. Files that fail to parse, lack `type: task`, or
+/// are explicitly bound to a different project are skipped silently —
+/// warnings are reserved for actionable cases like unmapped field types
+/// so the user sees what they can fix.
 pub fn plan_push(
     input: &PushInput,
     snapshot_items: &BTreeMap<String, super::snapshot::SnapshotItem>,
 ) -> Result<PushPlan, String> {
-    let task_folder_abs = input.vault_path.join(&input.task_folder_rel);
-    let entries = match fs::read_dir(&task_folder_abs) {
-        Ok(entries) => entries,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-            return Ok(PushPlan::default());
-        }
-        Err(e) => {
-            return Err(format!(
-                "Failed to list task folder `{}`: {e}",
-                task_folder_abs.display()
-            ));
-        }
-    };
-
     let schema_lookup: BTreeMap<&str, &ProjectField> = input
         .field_schema
         .iter()
         .map(|f| (f.name.as_str(), f))
         .collect();
     let mut plan = PushPlan::default();
+    let mut candidates: Vec<PathBuf> = Vec::new();
+    walk_vault_markdown(&input.vault_path, &mut candidates);
 
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.extension().and_then(|s| s.to_str()) != Some("md") {
-            continue;
-        }
+    for path in candidates {
         let Ok(content) = fs::read_to_string(&path) else {
             continue;
         };
@@ -132,22 +124,16 @@ pub fn plan_push(
         if task_type.as_deref() != Some("task") {
             continue;
         }
+        if !belongs_to_project(&path, &frontmatter, input) {
+            continue;
+        }
 
         let rel_path = relative_to_vault(&input.vault_path, &path);
-        let title = frontmatter_str(&frontmatter, "title").unwrap_or_default();
+        let title = title_from_frontmatter_or_body(&frontmatter, &body);
         if title.is_empty() {
             continue;
         }
         let item_id = frontmatter_str(&frontmatter, "github_item_id");
-        let existing_project = frontmatter_str(&frontmatter, "github_project_node_id");
-
-        // Tasks bound to a different project must not be touched.
-        if let Some(existing_project) = &existing_project {
-            if existing_project != &input.project_node_id {
-                continue;
-            }
-        }
-
         let local_fields = collect_local_field_values(
             &frontmatter,
             input.status_field.as_deref(),
@@ -211,6 +197,95 @@ pub fn plan_push(
             .then_with(|| a.field_name.cmp(&b.field_name))
     });
     Ok(plan)
+}
+
+/// Recursive vault walker that filters to `.md` files and skips the
+/// hidden dirs Tolaria already considers internal (`.git`, `.laputa`,
+/// the rename-transaction folder, etc.). Errors during walk are
+/// non-fatal: an unreadable subtree just contributes zero candidates.
+fn walk_vault_markdown(dir: &Path, out: &mut Vec<PathBuf>) {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+            if name.starts_with('.') {
+                continue;
+            }
+        }
+        if path.is_dir() {
+            walk_vault_markdown(&path, out);
+        } else if path.extension().and_then(|s| s.to_str()) == Some("md") {
+            out.push(path);
+        }
+    }
+}
+
+/// Decide whether the task at `path` belongs to the bound project. Tasks
+/// explicitly bound to a *different* project (i.e. they already have a
+/// `github_project_node_id` that points elsewhere) are excluded
+/// unconditionally. Otherwise a task is in-scope if its path is under
+/// the bound `task_folder` OR its `project:` wikilink resolves to the
+/// project note stem.
+fn belongs_to_project(path: &Path, frontmatter: &Mapping, input: &PushInput) -> bool {
+    if let Some(existing) = frontmatter_str(frontmatter, "github_project_node_id") {
+        if existing != input.project_node_id {
+            return false;
+        }
+    }
+    if path_is_inside(&input.vault_path.join(&input.task_folder_rel), path) {
+        return true;
+    }
+    let Some(project_ref) = frontmatter_str(frontmatter, "project") else {
+        return false;
+    };
+    wikilink_resolves_to(&project_ref, &input.project_note_stem)
+}
+
+fn path_is_inside(parent: &Path, child: &Path) -> bool {
+    let Ok(parent_canon) = parent.canonicalize() else {
+        return child.starts_with(parent);
+    };
+    let Ok(child_canon) = child.canonicalize() else {
+        return child.starts_with(parent);
+    };
+    child_canon.starts_with(parent_canon)
+}
+
+/// Strip wrapping `[[...]]` and any `|alias` suffix, then compare to the
+/// project note's filename stem case-insensitively. The wikilink can
+/// also be plain text (no brackets) since some users hand-write the
+/// frontmatter — accept that shape too.
+fn wikilink_resolves_to(raw: &str, project_stem: &str) -> bool {
+    let trimmed = raw.trim();
+    let without_brackets = trimmed
+        .strip_prefix("[[")
+        .and_then(|s| s.strip_suffix("]]"))
+        .unwrap_or(trimmed);
+    let target = without_brackets.split('|').next().unwrap_or("").trim();
+    target.eq_ignore_ascii_case(project_stem)
+}
+
+/// Title resolution: frontmatter `title:` wins, but local tasks created
+/// in Tolaria carry their title in the H1 instead — fall back to the
+/// first `# ` line so push works on hand-written tasks too.
+fn title_from_frontmatter_or_body(frontmatter: &Mapping, body: &str) -> String {
+    if let Some(title) = frontmatter_str(frontmatter, "title") {
+        let trimmed = title.trim();
+        if !trimmed.is_empty() {
+            return trimmed.to_string();
+        }
+    }
+    for line in body.lines() {
+        if let Some(rest) = line.strip_prefix("# ") {
+            let trimmed = rest.trim();
+            if !trimmed.is_empty() {
+                return trimmed.to_string();
+            }
+        }
+    }
+    String::new()
 }
 
 /// Collect the current local value for every field that has a mapping,
@@ -447,6 +522,7 @@ mod tests {
             vault_path: vault.to_path_buf(),
             task_folder_rel: "tasks".into(),
             project_node_id: "PVT_demo".into(),
+            project_note_stem: "q2-launch".into(),
             status_field: Some("Status".into()),
             field_mappings: vec![
                 ("priority".into(), "Priority".into()),
@@ -456,6 +532,14 @@ mod tests {
             field_schema: schema_for_tests(),
             now_rfc3339: "2026-05-15T13:00:00Z".into(),
         }
+    }
+
+    fn write_at(vault: &Path, rel: &str, content: &str) {
+        let path = vault.join(rel);
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).unwrap();
+        }
+        fs::write(path, content).unwrap();
     }
 
     fn write_task(vault: &Path, name: &str, content: &str) {
@@ -640,6 +724,52 @@ mod tests {
         let plan = plan_push(&make_input(vault.path()), &BTreeMap::new()).unwrap();
         assert!(plan.creates.is_empty());
         assert!(plan.updates.is_empty());
+    }
+
+    #[test]
+    fn task_outside_folder_is_picked_up_via_project_wikilink() {
+        let vault = TempDir::new().unwrap();
+        write_at(
+            vault.path(),
+            "task-implement-board-view.md",
+            "---\ntype: task\nproject: \"[[q2-launch]]\"\nstatus: Backlog\nestimate: 8\n---\n# Implement board view\n\nBody here.\n",
+        );
+        let plan = plan_push(&make_input(vault.path()), &BTreeMap::new()).unwrap();
+        assert_eq!(plan.creates.len(), 1, "warnings: {:?}", plan.warnings);
+        assert_eq!(plan.creates[0].title, "Implement board view");
+    }
+
+    #[test]
+    fn task_with_wikilink_to_a_different_project_is_skipped() {
+        let vault = TempDir::new().unwrap();
+        write_at(
+            vault.path(),
+            "task-elsewhere.md",
+            "---\ntype: task\nproject: \"[[other-project]]\"\nstatus: Backlog\n---\n# Elsewhere\n",
+        );
+        let plan = plan_push(&make_input(vault.path()), &BTreeMap::new()).unwrap();
+        assert!(plan.creates.is_empty());
+    }
+
+    #[test]
+    fn h1_title_is_used_when_frontmatter_has_none() {
+        let vault = TempDir::new().unwrap();
+        write_at(
+            vault.path(),
+            "tasks/h1.md",
+            "---\ntype: task\nstatus: Backlog\n---\n# From the H1\n\nbody\n",
+        );
+        let plan = plan_push(&make_input(vault.path()), &BTreeMap::new()).unwrap();
+        assert_eq!(plan.creates.len(), 1);
+        assert_eq!(plan.creates[0].title, "From the H1");
+    }
+
+    #[test]
+    fn wikilink_resolution_is_case_insensitive_and_alias_tolerant() {
+        assert!(wikilink_resolves_to("[[Q2-Launch]]", "q2-launch"));
+        assert!(wikilink_resolves_to("[[q2-launch|Q2 Launch]]", "q2-launch"));
+        assert!(wikilink_resolves_to("q2-launch", "q2-launch"));
+        assert!(!wikilink_resolves_to("[[other]]", "q2-launch"));
     }
 
     #[test]
