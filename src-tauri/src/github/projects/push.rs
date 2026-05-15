@@ -599,6 +599,7 @@ mod tests {
                     map.insert("Priority".into(), "P0".into());
                     map
                 },
+                remote_updated_at: None,
                 local_file_path: "tasks/ship.md".into(),
             },
         );
@@ -634,6 +635,7 @@ mod tests {
                     map.insert("Estimate".into(), "7".into());
                     map
                 },
+                remote_updated_at: None,
                 local_file_path: "tasks/ship.md".into(),
             },
         );

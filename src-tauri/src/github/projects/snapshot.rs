@@ -65,6 +65,11 @@ pub struct SnapshotItem {
     pub repository: Option<String>,
     #[serde(default)]
     pub field_values: BTreeMap<String, String>,
+    /// Last `ProjectV2Item.updatedAt` we observed from GitHub. Carried
+    /// through so the reconciler can compare against the local file's
+    /// mtime when both sides diverge — that's the LWW input.
+    #[serde(default)]
+    pub remote_updated_at: Option<String>,
     pub local_file_path: String,
 }
 
@@ -156,6 +161,7 @@ mod tests {
                 map.insert("Priority".into(), "High".into());
                 map
             },
+            remote_updated_at: None,
             local_file_path: "tasks/q2/implement-board-view.md".into(),
         }
     }

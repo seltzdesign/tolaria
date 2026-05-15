@@ -163,6 +163,7 @@ query ListProjectItems($projectId: ID!, $first: Int!, $after: String) {
         pageInfo { hasNextPage endCursor }
         nodes {
           id
+          updatedAt
           content {
             __typename
             ... on DraftIssue { title body }
@@ -235,6 +236,11 @@ pub struct PageInfo {
 #[derive(Debug, Clone, Deserialize)]
 pub struct ProjectItem {
     pub id: String,
+    /// Item-level "when did this item last change on github.com" timestamp.
+    /// Used by the reconciler as the remote side of an LWW comparison
+    /// when both local and remote have diverged from the snapshot.
+    #[serde(rename = "updatedAt", default)]
+    pub updated_at: Option<String>,
     pub content: Option<ProjectItemContent>,
     #[serde(rename = "fieldValues")]
     pub field_values: FieldValuesConnection,

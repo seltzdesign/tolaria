@@ -16,6 +16,7 @@ interface SyncResult {
   unchanged: number
   items_seen: number
   items_skipped: number
+  conflicts: number
   pushed_creates: number
   pushed_field_updates: number
   warnings: string[]
@@ -81,6 +82,7 @@ export function ProjectHeader({
         pull_updated: result.updated,
         pull_deleted: result.deleted,
         pull_unchanged: result.unchanged,
+        conflicts: result.conflicts,
         push_creates: result.pushed_creates,
         push_field_updates: result.pushed_field_updates,
         had_errors: result.errors.length > 0,
@@ -188,6 +190,16 @@ export function ProjectHeader({
               pushed_field_updates: syncState.result.pushed_field_updates,
             })}
           </span>
+          {syncState.result.conflicts > 0 && (
+            <span
+              className="text-red-600 dark:text-red-400"
+              data-testid="project-sync-conflicts"
+            >
+              {t('tasks.project.syncConflicts', {
+                conflicts: syncState.result.conflicts,
+              })}
+            </span>
+          )}
           {syncState.result.warnings.length > 0 && (
             <span
               className="text-amber-600 dark:text-amber-400"

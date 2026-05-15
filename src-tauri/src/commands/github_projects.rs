@@ -105,6 +105,7 @@ pub struct SyncResult {
     pub unchanged: u32,
     pub items_seen: u32,
     pub items_skipped: u32,
+    pub conflicts: u32,
     // Push
     pub pushed_creates: u32,
     pub pushed_field_updates: u32,
@@ -206,6 +207,7 @@ pub async fn github_sync(vault_path: String, note_path: String) -> Result<SyncRe
         unchanged: pull_summary.unchanged,
         items_seen,
         items_skipped,
+        conflicts: pull_summary.conflicts,
         pushed_creates,
         pushed_field_updates,
         warnings,
@@ -292,6 +294,7 @@ async fn execute_creates(
                 number: None,
                 repository: None,
                 field_values: item_field_values,
+                remote_updated_at: Some(ctx.now_rfc3339.to_string()),
                 local_file_path: create.local_file_path.clone(),
             },
         );
@@ -435,6 +438,7 @@ fn append_sync_log(
             "updated": summary.updated,
             "deleted": summary.deleted,
             "unchanged": summary.unchanged,
+            "conflicts": summary.conflicts,
         },
         "errors": summary.errors,
     });
@@ -510,6 +514,7 @@ mod tests {
             updated: 1,
             deleted: 0,
             unchanged: 4,
+            conflicts: 0,
             errors: vec![],
         };
         append_sync_log(dir.path(), "PVT_kw_demo", "2026-05-15T12:00:00Z", &summary);

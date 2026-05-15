@@ -65,6 +65,7 @@
   "tasks.project.syncNow": "Sync now",
   "tasks.project.syncing": "Syncing…",
   "tasks.project.syncResult": "Sync OK · pull: {created} new, {updated} updated, {deleted} removed ({items_seen} seen, {items_skipped} skipped) · push: {pushed_creates} created, {pushed_field_updates} field edits",
+  "tasks.project.syncConflicts": "{conflicts} field conflict(s) — loser preserved in cache/github-sync/conflicts/",
   "tasks.project.syncWarnings": "Warnings: {messages}",
   "tasks.project.syncFailed": "Sync failed: {message}",
   "githubBind.title": "Bind GitHub Project",
