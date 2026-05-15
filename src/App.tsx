@@ -28,6 +28,7 @@ import { McpSetupDialog } from './components/McpSetupDialog'
 import { NoteRetargetingDialogs } from './components/note-retargeting/NoteRetargetingDialogs'
 import { StartupScreen } from './components/StartupScreen'
 import { useMcpStatus } from './hooks/useMcpStatus'
+import { useGitHubScheduler } from './hooks/useGitHubScheduler'
 import { useAiAgentsOnboarding } from './hooks/useAiAgentsOnboarding'
 import { useAiAgentsStatus } from './hooks/useAiAgentsStatus'
 import { useVaultAiGuidanceStatus } from './hooks/useVaultAiGuidanceStatus'
@@ -479,6 +480,9 @@ function App() {
     loadMcpConfigSnippet,
     copyMcpConfig,
   } = useMcpStatus(resolvedPath, setToastMessage, appLocale)
+  useGitHubScheduler({
+    vaultPath: resolvedPath || null,
+  })
   const loadDefaultVaultModifiedFiles = vault.loadModifiedFiles
   const loadAllGitModifiedFiles = gitSurfaces.loadAllModifiedFiles
   const loadModifiedFilesForRepository = gitSurfaces.loadModifiedFilesForRepository

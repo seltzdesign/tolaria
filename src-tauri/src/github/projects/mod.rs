@@ -5,6 +5,7 @@ pub mod connection;
 pub mod push;
 pub mod queries;
 pub mod rate_limit;
+pub mod scheduler;
 pub mod snapshot;
 pub mod sync;
 pub mod url;

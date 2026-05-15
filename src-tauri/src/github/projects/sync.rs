@@ -77,6 +77,11 @@ pub struct PullSummary {
     /// recorded in the cache-dir conflict log; the count just lets the
     /// UI show "you had N conflicts" in the result line.
     pub conflicts: u32,
+    /// Vault-relative paths the pull pass touched (created, updated,
+    /// or deleted). The scheduler emits a `task_synced` event per path
+    /// so the renderer can force-reload an open editor tab — that's
+    /// the fix for the autosave-vs-sync overwrite race.
+    pub touched_paths: Vec<String>,
     pub errors: Vec<String>,
 }
 
@@ -135,7 +140,12 @@ pub fn pull(input: &PullInput) -> Result<PullSummary, String> {
             continue;
         }
         match delete_local_file(&input.vault_path, &snap_item.local_file_path) {
-            Ok(()) => summary.deleted += 1,
+            Ok(()) => {
+                summary.deleted += 1;
+                summary
+                    .touched_paths
+                    .push(snap_item.local_file_path.clone());
+            }
             Err(err) => summary.errors.push(err),
         }
     }
@@ -276,6 +286,7 @@ fn apply_remote_item(
     let body = body_for_new_task(remote);
     write_new_task_note(&abs_path, &frontmatter, &remote.title, &body)?;
     summary.created += 1;
+    summary.touched_paths.push(rel_path.clone());
     Ok(snapshot_view_from(remote, &rel_path))
 }
 
@@ -420,6 +431,7 @@ fn reconcile_existing_item(
         summary.conflicts += conflicts.len() as u32;
     }
     summary.updated += 1;
+    summary.touched_paths.push(prev.local_file_path.clone());
     Ok(next_view)
 }
 

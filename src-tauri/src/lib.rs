@@ -523,6 +523,8 @@ macro_rules! app_invoke_handler {
             commands::github_bind_project,
             commands::github_unbind_project,
             commands::github_sync,
+            commands::github_scheduler_start,
+            commands::github_scheduler_stop,
             vault_watcher::start_vault_watcher,
             vault_watcher::stop_vault_watcher
         ]
@@ -558,7 +560,8 @@ pub fn run() {
         .manage(WsBridgeChild(Mutex::new(None)))
         .manage(AllowedAssetScopeRoots(Mutex::new(Vec::new())))
         .manage(window_state::MainWindowFrameState::default())
-        .manage(vault_watcher::VaultWatcherState::new());
+        .manage(vault_watcher::VaultWatcherState::new())
+        .manage(github::projects::scheduler::SchedulerState::new());
 
     with_invoke_handler(builder)
         .setup(setup_app)
