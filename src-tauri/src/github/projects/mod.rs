@@ -4,6 +4,8 @@ pub mod client;
 pub mod connection;
 pub mod queries;
 pub mod rate_limit;
+pub mod snapshot;
+pub mod sync;
 pub mod url;
 
 #[cfg(test)]

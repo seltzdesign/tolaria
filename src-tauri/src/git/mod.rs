@@ -46,6 +46,7 @@ pub struct GitCommit {
 
 const DEFAULT_GITIGNORE: &str = "# Tolaria app files (machine-specific, never commit)\n\
 .laputa/settings.json\n\
+.laputa/sync-log.jsonl\n\
 \n\
 # macOS\n\
 .DS_Store\n\
