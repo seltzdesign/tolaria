@@ -361,7 +361,7 @@ pub struct UpdateProjectItemFieldVars<'a> {
 
 /// Shape mirrors GitHub's `ProjectV2FieldValue` input union. Only one field
 /// should be populated per call.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct FieldValueInput {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub text: Option<String>,

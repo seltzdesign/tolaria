@@ -522,7 +522,7 @@ macro_rules! app_invoke_handler {
             commands::github_resolve_project_url,
             commands::github_bind_project,
             commands::github_unbind_project,
-            commands::github_sync_pull,
+            commands::github_sync,
             vault_watcher::start_vault_watcher,
             vault_watcher::stop_vault_watcher
         ]

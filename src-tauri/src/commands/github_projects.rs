@@ -15,7 +15,9 @@ use crate::github::projects::{
     binding::{self, GithubBindingInput},
     client::{self, ClientConfig, ClientError},
     connection,
+    push::{self, PushInput, PushPlan},
     queries::{ProjectField, ProjectSummary},
+    snapshot::{self, ProjectSnapshot, SnapshotItem},
     sync::{self, PullInput, PullSummary},
     url::{parse_project_url, ProjectOwner},
 };
@@ -90,29 +92,35 @@ pub fn github_unbind_project(note_path: String) -> Result<(), String> {
     binding::clear_binding(Path::new(&note_path))
 }
 
-/// Counts returned to the renderer from a manual pull. Mirrors
-/// `sync::PullSummary` but keeps the wire shape stable independent of the
-/// internal struct so we can extend it without breaking the frontend.
-/// `items_seen` is the raw `ListProjectItems` count before any filtering —
-/// useful for diagnosing "0 changes" outcomes (e.g. PAT can't read the
-/// underlying issue repo so `content` comes back null and items get skipped).
+/// Counts returned to the renderer from a manual sync cycle. Carries
+/// both the pull-side numbers (what changed locally because of remote
+/// state) and the push-side numbers (what we sent upstream) so the
+/// renderer can show a single result line covering the round trip.
 #[derive(Debug, Serialize)]
-pub struct PullResult {
+pub struct SyncResult {
+    // Pull
     pub created: u32,
     pub updated: u32,
     pub deleted: u32,
     pub unchanged: u32,
     pub items_seen: u32,
     pub items_skipped: u32,
+    // Push
+    pub pushed_creates: u32,
+    pub pushed_field_updates: u32,
+    pub warnings: Vec<String>,
     pub errors: Vec<String>,
 }
 
-/// Manual pull for a single bound project. Reads the binding from the
-/// project note's frontmatter, fetches every remote item, asks the sync
-/// engine to apply diffs to the vault, and appends one line to the
-/// per-vault sync log so we have an audit trail of every cycle.
+/// One round trip against GitHub for a single bound project. Pulls
+/// remote items down into the vault, then walks the bound `task_folder`
+/// and pushes local draft creates / field updates back up. The snapshot
+/// store is what makes "is this a real change?" a cheap question on
+/// both sides — pull writes it at the end of its pass, push reads it
+/// before planning, and any successful mutations stamp the new state
+/// back so the next cycle doesn't re-push.
 #[tauri::command]
-pub async fn github_sync_pull(vault_path: String, note_path: String) -> Result<PullResult, String> {
+pub async fn github_sync(vault_path: String, note_path: String) -> Result<SyncResult, String> {
     let vault_path = PathBuf::from(crate::commands::expand_tilde(&vault_path).into_owned());
     let note_path = Path::new(&note_path).to_path_buf();
     let binding = read_project_binding(&note_path)?;
@@ -120,35 +128,209 @@ pub async fn github_sync_pull(vault_path: String, note_path: String) -> Result<P
         .ok_or_else(|| "No GitHub personal access token is stored.".to_string())?;
     let http = client::build_http_client().map_err(stringify)?;
     let config = ClientConfig::new(pat);
-    let items = client::list_all_project_items(&http, &config, &binding.project_node_id)
+    let now = Utc::now().to_rfc3339();
+    let project_node_id = binding.project_node_id.clone();
+    let cache_base = snapshot::default_base();
+    let project_note_stem = filename_stem(&note_path);
+
+    // === Pull ===
+    let items = client::list_all_project_items(&http, &config, &project_node_id)
         .await
         .map_err(stringify)?;
     let items_seen = items.len() as u32;
     let items_skipped = items.iter().filter(|i| i.content.is_none()).count() as u32;
-    let now = Utc::now().to_rfc3339();
-    let project_note_stem = filename_stem(&note_path);
-    let project_node_id = binding.project_node_id.clone();
-    let summary = sync::pull(&PullInput {
+    let pull_summary = sync::pull(&PullInput {
         vault_path: vault_path.clone(),
-        task_folder_rel: binding.task_folder_rel,
+        task_folder_rel: binding.task_folder_rel.clone(),
         project_node_id: project_node_id.clone(),
         project_note_stem,
-        status_field: binding.status_field,
-        field_mappings: binding.field_mappings,
+        status_field: binding.status_field.clone(),
+        field_mappings: binding.field_mappings.clone(),
         items,
         now_rfc3339: now.clone(),
-        cache_base: crate::github::projects::snapshot::default_base(),
+        cache_base: cache_base.clone(),
     })?;
-    append_sync_log(&vault_path, &project_node_id, &now, &summary);
-    Ok(PullResult {
-        created: summary.created,
-        updated: summary.updated,
-        deleted: summary.deleted,
-        unchanged: summary.unchanged,
+
+    // === Push ===
+    let field_schema = client::get_project_fields(&http, &config, &project_node_id)
+        .await
+        .map_err(stringify)?;
+    let mut snap = snapshot::load(&cache_base, &project_node_id);
+    let plan = push::plan_push(
+        &PushInput {
+            vault_path: vault_path.clone(),
+            task_folder_rel: binding.task_folder_rel.clone(),
+            project_node_id: project_node_id.clone(),
+            status_field: binding.status_field.clone(),
+            field_mappings: binding.field_mappings.clone(),
+            field_schema,
+            now_rfc3339: now.clone(),
+        },
+        &snap.items,
+    )?;
+
+    let mut warnings = plan.warnings.clone();
+    let mut errors: Vec<String> = Vec::new();
+    let mut pushed_creates = 0u32;
+    let mut pushed_field_updates = 0u32;
+
+    let ctx = ExecCtx {
+        http: &http,
+        config: &config,
+        project_node_id: &project_node_id,
+        vault_path: &vault_path,
+        now_rfc3339: &now,
+    };
+    pushed_creates += execute_creates(
+        &ctx,
+        &plan,
+        &mut snap,
+        &mut errors,
+        &mut pushed_field_updates,
+    )
+    .await;
+    pushed_field_updates += execute_updates(&ctx, &plan, &mut snap, &mut errors).await;
+
+    snap.synced_at = now.clone();
+    snapshot::save(&cache_base, &snap)?;
+
+    append_sync_log(&vault_path, &project_node_id, &now, &pull_summary);
+    let mut combined_errors = pull_summary.errors;
+    combined_errors.append(&mut errors);
+    warnings.dedup();
+    Ok(SyncResult {
+        created: pull_summary.created,
+        updated: pull_summary.updated,
+        deleted: pull_summary.deleted,
+        unchanged: pull_summary.unchanged,
         items_seen,
         items_skipped,
-        errors: summary.errors,
+        pushed_creates,
+        pushed_field_updates,
+        warnings,
+        errors: combined_errors,
     })
+}
+
+/// Shared inputs for the push-executor halves — bundled so neither
+/// function trips clippy's `too_many_arguments` lint and so they stay
+/// symmetric. Borrowed because the executor's lifetime is the whole
+/// `github_sync` call.
+struct ExecCtx<'a> {
+    http: &'a reqwest::Client,
+    config: &'a ClientConfig,
+    project_node_id: &'a str,
+    vault_path: &'a Path,
+    now_rfc3339: &'a str,
+}
+
+async fn execute_creates(
+    ctx: &ExecCtx<'_>,
+    plan: &PushPlan,
+    snap: &mut ProjectSnapshot,
+    errors: &mut Vec<String>,
+    pushed_field_updates: &mut u32,
+) -> u32 {
+    let mut count = 0u32;
+    for create in &plan.creates {
+        let new_item_id = match client::add_draft_issue(
+            ctx.http,
+            ctx.config,
+            ctx.project_node_id,
+            &create.title,
+            create.body.as_deref(),
+        )
+        .await
+        {
+            Ok(id) => id,
+            Err(e) => {
+                errors.push(format!("create draft `{}`: {e}", create.title));
+                continue;
+            }
+        };
+        let abs = ctx.vault_path.join(&create.local_file_path);
+        if let Err(e) = push::write_back_create_metadata(
+            &abs,
+            ctx.project_node_id,
+            &new_item_id,
+            ctx.now_rfc3339,
+        ) {
+            errors.push(e);
+        }
+        let mut item_field_values = std::collections::BTreeMap::new();
+        for field in &create.follow_up_fields {
+            match client::update_project_item_field(
+                ctx.http,
+                ctx.config,
+                ctx.project_node_id,
+                &new_item_id,
+                &field.field_id,
+                field.value.clone(),
+            )
+            .await
+            {
+                Ok(_) => {
+                    item_field_values
+                        .insert(field.field_name.clone(), field.remote_value_str.clone());
+                    *pushed_field_updates += 1;
+                }
+                Err(e) => errors.push(format!(
+                    "set `{}` on new item `{}`: {e}",
+                    field.field_name, create.title
+                )),
+            }
+        }
+        snap.items.insert(
+            new_item_id.clone(),
+            SnapshotItem {
+                item_id: new_item_id,
+                content_type: "DraftIssue".into(),
+                title: create.title.clone(),
+                body: create.body.clone(),
+                url: None,
+                number: None,
+                repository: None,
+                field_values: item_field_values,
+                local_file_path: create.local_file_path.clone(),
+            },
+        );
+        count += 1;
+    }
+    count
+}
+
+async fn execute_updates(
+    ctx: &ExecCtx<'_>,
+    plan: &PushPlan,
+    snap: &mut ProjectSnapshot,
+    errors: &mut Vec<String>,
+) -> u32 {
+    let mut count = 0u32;
+    for update in &plan.updates {
+        match client::update_project_item_field(
+            ctx.http,
+            ctx.config,
+            ctx.project_node_id,
+            &update.item_id,
+            &update.field_id,
+            update.value.clone(),
+        )
+        .await
+        {
+            Ok(_) => {
+                if let Some(item) = snap.items.get_mut(&update.item_id) {
+                    item.field_values
+                        .insert(update.field_name.clone(), update.remote_value_str.clone());
+                }
+                count += 1;
+            }
+            Err(e) => errors.push(format!(
+                "update `{}` on `{}`: {e}",
+                update.field_name, update.local_file_path
+            )),
+        }
+    }
+    count
 }
 
 /// Slice of the project-note binding the sync engine needs to do its work.

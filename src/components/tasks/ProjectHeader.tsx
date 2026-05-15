@@ -9,13 +9,16 @@ import { Input } from '../ui/input'
 import { Button } from '../ui/button'
 import { BindGitHubProjectModal } from './BindGitHubProjectModal'
 
-interface PullResult {
+interface SyncResult {
   created: number
   updated: number
   deleted: number
   unchanged: number
   items_seen: number
   items_skipped: number
+  pushed_creates: number
+  pushed_field_updates: number
+  warnings: string[]
   errors: string[]
 }
 
@@ -38,7 +41,7 @@ export interface ProjectHeaderProps {
 type SyncState =
   | { kind: 'idle' }
   | { kind: 'running' }
-  | { kind: 'success'; result: PullResult }
+  | { kind: 'success'; result: SyncResult }
   | { kind: 'error'; message: string }
 
 function trackPropertyEdit(property: ProjectTelemetryProperty): void {
@@ -68,17 +71,20 @@ export function ProjectHeader({
     if (!canSync) return
     setSyncState({ kind: 'running' })
     try {
-      const result = await invoke<PullResult>('github_sync_pull', {
+      const result = await invoke<SyncResult>('github_sync', {
         vaultPath,
         notePath: entry.path,
       })
       setSyncState({ kind: 'success', result })
-      trackEvent('github_project_sync_pulled', {
-        created: result.created,
-        updated: result.updated,
-        deleted: result.deleted,
-        unchanged: result.unchanged,
+      trackEvent('github_project_synced', {
+        pull_created: result.created,
+        pull_updated: result.updated,
+        pull_deleted: result.deleted,
+        pull_unchanged: result.unchanged,
+        push_creates: result.pushed_creates,
+        push_field_updates: result.pushed_field_updates,
         had_errors: result.errors.length > 0,
+        had_warnings: result.warnings.length > 0,
       })
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
@@ -167,17 +173,31 @@ export function ProjectHeader({
       )}
       {syncState.kind === 'success' && (
         <span
-          className="text-muted-foreground text-xs"
+          className="text-muted-foreground text-xs flex flex-col"
           data-testid="project-sync-result"
         >
-          {t('tasks.project.syncResult', {
-            created: syncState.result.created,
-            updated: syncState.result.updated,
-            deleted: syncState.result.deleted,
-            unchanged: syncState.result.unchanged,
-            items_seen: syncState.result.items_seen,
-            items_skipped: syncState.result.items_skipped,
-          })}
+          <span>
+            {t('tasks.project.syncResult', {
+              created: syncState.result.created,
+              updated: syncState.result.updated,
+              deleted: syncState.result.deleted,
+              unchanged: syncState.result.unchanged,
+              items_seen: syncState.result.items_seen,
+              items_skipped: syncState.result.items_skipped,
+              pushed_creates: syncState.result.pushed_creates,
+              pushed_field_updates: syncState.result.pushed_field_updates,
+            })}
+          </span>
+          {syncState.result.warnings.length > 0 && (
+            <span
+              className="text-amber-600 dark:text-amber-400"
+              data-testid="project-sync-warnings"
+            >
+              {t('tasks.project.syncWarnings', {
+                messages: syncState.result.warnings.join('; '),
+              })}
+            </span>
+          )}
         </span>
       )}
       {syncState.kind === 'error' && (
